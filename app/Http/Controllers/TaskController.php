@@ -131,4 +131,15 @@ class TaskController extends Controller
             'message' => '任務刪除成功'
         ]);
     }
+
+    // 幫我實作搜尋功能，透過 title 搜尋
+    public function search(Request $request): JsonResponse
+    {
+        $query = $request->input('query');
+        $tasks = Task::where('title', 'like', "%$query%")->get();
+        return response()->json([
+            'success' => true,
+            'data' => $tasks
+        ]);
+    }
 }

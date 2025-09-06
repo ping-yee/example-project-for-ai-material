@@ -316,6 +316,71 @@
             border: 1px solid #f5c6cb;
         }
 
+        .search-form {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            transform: translateY(0);
+            transition: all 0.3s ease;
+        }
+
+        .search-form:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .search-container {
+            display: flex;
+            justify-content: center;
+        }
+
+        .search-input-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 12px 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .search-btn, .clear-btn {
+            padding: 12px 20px;
+            border-radius: 25px;
+            white-space: nowrap;
+            min-width: 100px;
+        }
+
+        .search-btn:hover, .clear-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .search-results-info {
+            text-align: center;
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            color: #1976d2;
+            font-weight: 500;
+        }
+
         @media (max-width: 768px) {
             .form-row {
                 grid-template-columns: 1fr;
@@ -327,6 +392,19 @@
             
             .task-actions {
                 justify-content: center;
+            }
+
+            .search-input-group {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .search-input {
+                width: 100%;
+            }
+
+            .search-btn, .clear-btn {
+                width: 100%;
             }
         }
     </style>
@@ -378,6 +456,21 @@
                 </form>
             </div>
 
+            <!-- 搜尋功能 -->
+            <div class="search-form">
+                <div class="search-container">
+                    <div class="search-input-group">
+                        <input type="text" id="searchInput" placeholder="搜尋任務標題..." class="search-input">
+                        <button type="button" id="searchBtn" class="btn btn-primary search-btn">
+                            <i class="fas fa-search"></i> 搜尋
+                        </button>
+                        <button type="button" id="clearSearchBtn" class="btn btn-warning clear-btn" style="display: none;">
+                            <i class="fas fa-times"></i> 清除
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- 提示訊息 -->
             <div id="alertContainer"></div>
 
@@ -407,6 +500,30 @@
                 document.getElementById('addTaskForm').addEventListener('submit', (e) => {
                     e.preventDefault();
                     this.addTask();
+                });
+
+                // 搜尋功能事件綁定
+                document.getElementById('searchBtn').addEventListener('click', () => {
+                    this.performSearch();
+                });
+
+                document.getElementById('clearSearchBtn').addEventListener('click', () => {
+                    this.clearSearch();
+                });
+
+                // 按 Enter 鍵搜尋
+                document.getElementById('searchInput').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.performSearch();
+                    }
+                });
+
+                // 即時搜尋（可選）
+                document.getElementById('searchInput').addEventListener('input', (e) => {
+                    if (e.target.value.length > 2) {
+                        // 可以實作即時搜尋，這裡先不實作
+                    }
                 });
             }
 
@@ -649,6 +766,79 @@
                 
                 // 滾動到表單
                 form.scrollIntoView({ behavior: 'smooth' });
+            }
+
+            async performSearch() {
+                const query = document.getElementById('searchInput').value.trim();
+                
+                if (!query) {
+                    this.showAlert('請輸入搜尋關鍵字', 'error');
+                    return;
+                }
+
+                try {
+                    // 顯示載入狀態
+                    const container = document.getElementById('tasksContainer');
+                    container.innerHTML = `
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            <p>搜尋中...</p>
+                        </div>
+                    `;
+
+                    const response = await fetch(`/api/tasks/search?query=${encodeURIComponent(query)}`);
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        this.tasks = result.data;
+                        this.renderTasks();
+                        
+                        // 顯示搜尋結果資訊
+                        this.showSearchResults(query, result.data.length);
+                        
+                        // 顯示清除按鈕
+                        document.getElementById('clearSearchBtn').style.display = 'inline-flex';
+                    } else {
+                        this.showAlert('搜尋失敗', 'error');
+                        this.loadTasks(); // 重新載入所有任務
+                    }
+                } catch (error) {
+                    this.showAlert('搜尋失敗', 'error');
+                    this.loadTasks(); // 重新載入所有任務
+                }
+            }
+
+            clearSearch() {
+                document.getElementById('searchInput').value = '';
+                document.getElementById('clearSearchBtn').style.display = 'none';
+                
+                // 移除搜尋結果資訊
+                const existingInfo = document.querySelector('.search-results-info');
+                if (existingInfo) {
+                    existingInfo.remove();
+                }
+                
+                // 重新載入所有任務
+                this.loadTasks();
+            }
+
+            showSearchResults(query, count) {
+                // 移除現有的搜尋結果資訊
+                const existingInfo = document.querySelector('.search-results-info');
+                if (existingInfo) {
+                    existingInfo.remove();
+                }
+
+                // 添加新的搜尋結果資訊
+                const container = document.getElementById('tasksContainer');
+                const searchInfo = document.createElement('div');
+                searchInfo.className = 'search-results-info';
+                searchInfo.innerHTML = `
+                    <i class="fas fa-search"></i>
+                    搜尋「${query}」找到 ${count} 個結果
+                `;
+                
+                container.insertBefore(searchInfo, container.firstChild);
             }
 
             showAlert(message, type) {
