@@ -381,6 +381,109 @@
             font-weight: 500;
         }
 
+        .filter-form {
+            background: #f8f9fa;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .filter-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 25px;
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            cursor: pointer;
+        }
+
+        .filter-header h3 {
+            margin: 0;
+            font-size: 1.2em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .filter-content {
+            padding: 25px;
+            background: white;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .filter-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .filter-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .filter-group label {
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.9em;
+        }
+
+        .filter-select,
+        .filter-input {
+            padding: 10px 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 0.95em;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .filter-select:focus,
+        .filter-input:focus {
+            outline: none;
+            border-color: #28a745;
+            box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
+        }
+
+        .filter-actions {
+            display: flex;
+            gap: 10px;
+            align-items: end;
+            flex-wrap: wrap;
+        }
+
+        .filter-actions .btn {
+            padding: 10px 20px;
+            font-size: 0.9em;
+            border-radius: 8px;
+        }
+
+        .filter-active {
+            background: #d4edda;
+            border-color: #28a745;
+        }
+
+        .filter-summary {
+            background: #e3f2fd;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            color: #1976d2;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
         @media (max-width: 768px) {
             .form-row {
                 grid-template-columns: 1fr;
@@ -405,6 +508,19 @@
 
             .search-btn, .clear-btn {
                 width: 100%;
+            }
+
+            .filter-row {
+                grid-template-columns: 1fr;
+            }
+
+            .filter-actions {
+                justify-content: center;
+            }
+
+            .filter-actions .btn {
+                flex: 1;
+                min-width: 120px;
             }
         }
     </style>
@@ -471,6 +587,81 @@
                 </div>
             </div>
 
+            <!-- 篩選和排序功能 -->
+            <div class="filter-form">
+                <div class="filter-header">
+                    <h3><i class="fas fa-filter"></i> 篩選和排序</h3>
+                    <button type="button" id="toggleFilterBtn" class="btn btn-primary btn-sm">
+                        <i class="fas fa-chevron-down"></i> 展開篩選
+                    </button>
+                </div>
+                
+                <div class="filter-content" id="filterContent" style="display: none;">
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label for="filterStatus">狀態</label>
+                            <select id="filterStatus" class="filter-select">
+                                <option value="all">全部狀態</option>
+                                <option value="pending">待處理</option>
+                                <option value="in_progress">進行中</option>
+                                <option value="completed">已完成</option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label for="filterPriority">優先級</label>
+                            <select id="filterPriority" class="filter-select">
+                                <option value="all">全部優先級</option>
+                                <option value="1">低</option>
+                                <option value="2">中</option>
+                                <option value="3">高</option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label for="filterDateFrom">建立日期（從）</label>
+                            <input type="date" id="filterDateFrom" class="filter-input">
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label for="filterDateTo">建立日期（到）</label>
+                            <input type="date" id="filterDateTo" class="filter-input">
+                        </div>
+                    </div>
+                    
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label for="sortBy">排序欄位</label>
+                            <select id="sortBy" class="filter-select">
+                                <option value="created_at">建立時間</option>
+                                <option value="updated_at">更新時間</option>
+                                <option value="title">標題</option>
+                                <option value="priority">優先級</option>
+                                <option value="status">狀態</option>
+                                <option value="due_date">截止日期</option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label for="sortOrder">排序方向</label>
+                            <select id="sortOrder" class="filter-select">
+                                <option value="desc">降序（新到舊）</option>
+                                <option value="asc">升序（舊到新）</option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-actions">
+                            <button type="button" id="applyFilterBtn" class="btn btn-success">
+                                <i class="fas fa-check"></i> 套用篩選
+                            </button>
+                            <button type="button" id="clearFilterBtn" class="btn btn-warning">
+                                <i class="fas fa-times"></i> 清除篩選
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- 提示訊息 -->
             <div id="alertContainer"></div>
 
@@ -524,6 +715,19 @@
                     if (e.target.value.length > 2) {
                         // 可以實作即時搜尋，這裡先不實作
                     }
+                });
+
+                // 篩選功能事件綁定
+                document.getElementById('toggleFilterBtn').addEventListener('click', () => {
+                    this.toggleFilter();
+                });
+
+                document.getElementById('applyFilterBtn').addEventListener('click', () => {
+                    this.applyFilter();
+                });
+
+                document.getElementById('clearFilterBtn').addEventListener('click', () => {
+                    this.clearFilter();
                 });
             }
 
@@ -839,6 +1043,154 @@
                 `;
                 
                 container.insertBefore(searchInfo, container.firstChild);
+            }
+
+            toggleFilter() {
+                const content = document.getElementById('filterContent');
+                const btn = document.getElementById('toggleFilterBtn');
+                const icon = btn.querySelector('i');
+                
+                if (content.style.display === 'none') {
+                    content.style.display = 'block';
+                    icon.className = 'fas fa-chevron-up';
+                    btn.innerHTML = '<i class="fas fa-chevron-up"></i> 收起篩選';
+                } else {
+                    content.style.display = 'none';
+                    icon.className = 'fas fa-chevron-down';
+                    btn.innerHTML = '<i class="fas fa-chevron-down"></i> 展開篩選';
+                }
+            }
+
+            async applyFilter() {
+                const filters = {
+                    status: document.getElementById('filterStatus').value,
+                    priority: document.getElementById('filterPriority').value,
+                    date_from: document.getElementById('filterDateFrom').value,
+                    date_to: document.getElementById('filterDateTo').value,
+                    sort_by: document.getElementById('sortBy').value,
+                    sort_order: document.getElementById('sortOrder').value
+                };
+
+                try {
+                    // 顯示載入狀態
+                    const container = document.getElementById('tasksContainer');
+                    container.innerHTML = `
+                        <div class="loading">
+                            <div class="spinner"></div>
+                            <p>篩選中...</p>
+                        </div>
+                    `;
+
+                    // 構建查詢參數
+                    const params = new URLSearchParams();
+                    Object.keys(filters).forEach(key => {
+                        if (filters[key] && filters[key] !== 'all') {
+                            params.append(key, filters[key]);
+                        }
+                    });
+
+                    const response = await fetch(`/api/tasks/filter?${params.toString()}`);
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        this.tasks = result.data;
+                        this.renderTasks();
+                        
+                        // 顯示篩選結果資訊
+                        this.showFilterResults(result.filters, result.data.length);
+                        
+                        // 標記篩選為活躍狀態
+                        document.querySelector('.filter-form').classList.add('filter-active');
+                    } else {
+                        this.showAlert('篩選失敗', 'error');
+                        this.loadTasks();
+                    }
+                } catch (error) {
+                    this.showAlert('篩選失敗', 'error');
+                    this.loadTasks();
+                }
+            }
+
+            clearFilter() {
+                // 重置所有篩選選項
+                document.getElementById('filterStatus').value = 'all';
+                document.getElementById('filterPriority').value = 'all';
+                document.getElementById('filterDateFrom').value = '';
+                document.getElementById('filterDateTo').value = '';
+                document.getElementById('sortBy').value = 'created_at';
+                document.getElementById('sortOrder').value = 'desc';
+
+                // 移除篩選活躍狀態
+                document.querySelector('.filter-form').classList.remove('filter-active');
+                
+                // 移除篩選結果資訊
+                const existingInfo = document.querySelector('.filter-summary');
+                if (existingInfo) {
+                    existingInfo.remove();
+                }
+                
+                // 重新載入所有任務
+                this.loadTasks();
+            }
+
+            showFilterResults(filters, count) {
+                // 移除現有的篩選結果資訊
+                const existingInfo = document.querySelector('.filter-summary');
+                if (existingInfo) {
+                    existingInfo.remove();
+                }
+
+                // 構建篩選描述
+                const filterDescriptions = [];
+                
+                if (filters.status && filters.status !== 'all') {
+                    const statusText = {
+                        'pending': '待處理',
+                        'in_progress': '進行中',
+                        'completed': '已完成'
+                    }[filters.status] || filters.status;
+                    filterDescriptions.push(`狀態: ${statusText}`);
+                }
+                
+                if (filters.priority && filters.priority !== 'all') {
+                    const priorityText = {
+                        '1': '低',
+                        '2': '中',
+                        '3': '高'
+                    }[filters.priority] || filters.priority;
+                    filterDescriptions.push(`優先級: ${priorityText}`);
+                }
+                
+                if (filters.date_from) {
+                    filterDescriptions.push(`從: ${filters.date_from}`);
+                }
+                
+                if (filters.date_to) {
+                    filterDescriptions.push(`到: ${filters.date_to}`);
+                }
+
+                const sortText = {
+                    'created_at': '建立時間',
+                    'updated_at': '更新時間',
+                    'title': '標題',
+                    'priority': '優先級',
+                    'status': '狀態',
+                    'due_date': '截止日期'
+                }[filters.sort_by] || filters.sort_by;
+
+                const orderText = filters.sort_order === 'asc' ? '升序' : '降序';
+                filterDescriptions.push(`排序: ${sortText} (${orderText})`);
+
+                // 添加新的篩選結果資訊
+                const container = document.getElementById('tasksContainer');
+                const filterInfo = document.createElement('div');
+                filterInfo.className = 'filter-summary';
+                filterInfo.innerHTML = `
+                    <i class="fas fa-filter"></i>
+                    篩選結果: ${filterDescriptions.join(', ')} | 共 ${count} 個任務
+                `;
+                
+                container.insertBefore(filterInfo, container.firstChild);
             }
 
             showAlert(message, type) {

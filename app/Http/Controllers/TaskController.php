@@ -142,4 +142,61 @@ class TaskController extends Controller
             'data' => $tasks
         ]);
     }
+
+    // 篩選和排序功能
+    public function filter(Request $request): JsonResponse
+    {
+        $query = Task::query();
+
+        // 狀態篩選
+        if ($request->has('status') && $request->status !== 'all') {
+            $query->where('status', $request->status);
+        }
+
+        // 優先級篩選
+        if ($request->has('priority') && $request->priority !== 'all') {
+            $query->where('priority', $request->priority);
+        }
+
+        // 日期範圍篩選
+        if ($request->has('date_from') && $request->date_from) {
+            $query->where('created_at', '>=', $request->date_from);
+        }
+
+        if ($request->has('date_to') && $request->date_to) {
+            $query->where('created_at', '<=', $request->date_to . ' 23:59:59');
+        }
+
+        // 排序
+        $sortBy = $request->input('sort_by', 'created_at');
+        $sortOrder = $request->input('sort_order', 'desc');
+        
+        // 驗證排序欄位
+        $allowedSortFields = ['created_at', 'updated_at', 'title', 'priority', 'status', 'due_date'];
+        if (!in_array($sortBy, $allowedSortFields)) {
+            $sortBy = 'created_at';
+        }
+
+        // 驗證排序方向
+        if (!in_array($sortOrder, ['asc', 'desc'])) {
+            $sortOrder = 'desc';
+        }
+
+        $query->orderBy($sortBy, $sortOrder);
+
+        $tasks = $query->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $tasks,
+            'filters' => [
+                'status' => $request->status,
+                'priority' => $request->priority,
+                'date_from' => $request->date_from,
+                'date_to' => $request->date_to,
+                'sort_by' => $sortBy,
+                'sort_order' => $sortOrder
+            ]
+        ]);
+    }
 }
