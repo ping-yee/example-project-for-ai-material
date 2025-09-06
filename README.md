@@ -14,17 +14,22 @@ The example code for AI Material.
    docker compose up
    ```
 
-3. **Run database migrations**
+3. **PHP env install**
+   ```bash
+   /bin/bash -c "$(curl -fsSL https://php.new/install/mac/8.4)"
+   ```
+
+4. **Run database migrations**
    ```bash
    php artisan migrate
    ```
 
-4. **Start development server**
+5. **Start development server**
    ```bash
    composer run dev
    ```
 
-5. **Open browser and visit**
+6. **Open browser and visit**
    ```
    http://127.0.0.1:8000/todo
    ```
