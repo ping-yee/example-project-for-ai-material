@@ -1,2 +1,43 @@
-# example-project-for-ai-material
-The example code for AI material.
+# Todo Project
+
+The example code for AI Material.
+
+## Getting Started
+
+1. **Copy environment configuration**
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Start Docker containers**
+   ```bash
+   docker compose up
+   ```
+
+3. **Run database migrations**
+   ```bash
+   php artisan migrate
+   ```
+
+4. **Start development server**
+   ```bash
+   composer run dev
+   ```
+
+5. **Open browser and visit**
+   ```
+   http://127.0.0.1:8000/todo
+   ```
+
+## Tech Stack
+
+- **Backend**: Laravel 12 (PHP)
+- **Database**: MySQL
+- **Containerization**: Docker
+- **Frontend**: Blade templating engine
+
+## System Requirements
+
+- PHP 8.3+
+- Composer
+- Docker & Docker Compose
