@@ -113,6 +113,26 @@ return [
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
 
+        'mysql_test' => [
+            'driver' => 'mysql',
+            'url' => env('DB_TEST_URL'),
+            'host' => env('DB_TEST_HOST', '127.0.0.1'),
+            'port' => env('DB_TEST_PORT', '3307'),
+            'database' => env('DB_TEST_DATABASE', 'Demo_Test'),
+            'username' => env('DB_TEST_USERNAME', 'user'),
+            'password' => env('DB_TEST_PASSWORD', 'user'),
+            'unix_socket' => env('DB_TEST_SOCKET', ''),
+            'charset' => env('DB_TEST_CHARSET', 'utf8mb4'),
+            'collation' => env('DB_TEST_COLLATION', 'utf8mb4_unicode_ci'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'strict' => true,
+            'engine' => null,
+            'options' => extension_loaded('pdo_mysql') ? array_filter([
+                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+            ]) : [],
+        ],
+
     ],
 
     /*

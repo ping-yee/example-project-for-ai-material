@@ -1,0 +1,500 @@
+---
+alwaysApply: false
+---
+# 測試覆蓋率補足規範 (Make-up Test Coverage Rule)
+
+## 使用時機
+
+此規則應用於以下情境：
+1. **既有功能缺乏測試**：當現有程式碼的測試覆蓋率不足時
+2. **測試覆蓋率提升**：需要將特定檔案的測試覆蓋率提升至 80% 以上
+3. **測試案例修正**：當現有測試案例執行失敗需要修正時
+4. **程式碼重構前**：重構前確保有足夠的測試保護
+
+## 執行流程
+
+### 第一階段：評估現況
+
+#### 1. 執行測試覆蓋率檢測
+
+首先執行覆蓋率測試指令，了解目前的測試覆蓋率狀況：
+
+```bash
+# 執行特定檔案的測試覆蓋率（文字格式）
+./vendor/bin/phpunit --coverage-text --filter 檔案名稱Test
+
+# 執行特定測試類別的覆蓋率
+./vendor/bin/phpunit tests/Task/TaskControllerTest.php --coverage-text
+
+# 執行整個測試套件的覆蓋率
+php artisan test --coverage
+
+# 產生 HTML 覆蓋率報告（詳細分析用）
+./vendor/bin/phpunit --coverage-html coverage tests/Task/TaskControllerTest.php
+```
+
+#### 2. 分析覆蓋率報告
+
+檢查覆蓋率報告中的關鍵資訊：
+- **Lines 行覆蓋率**：已執行的程式碼行數比例
+- **Functions/Methods 方法覆蓋率**：已測試的方法比例  
+- **Classes 類別覆蓋率**：已測試的類別比例
+- **未覆蓋的程式碼區塊**：需要補足測試的地方
+
+**目標設定：**
+- ✅ 行覆蓋率 ≥ 80%
+- ✅ 方法覆蓋率 ≥ 80%
+- ✅ 所有公開 (public) 方法都有測試
+- ✅ 關鍵業務邏輯分支都有覆蓋
+
+#### 3. 識別測試缺口
+
+根據覆蓋率報告，識別以下缺口：
+- **未測試的方法**：完全沒有測試案例的方法
+- **未覆蓋的分支**：if/else、switch/case 等條件分支
+- **未測試的異常處理**：try/catch、throw 等錯誤處理邏輯
+- **未測試的邊界條件**：極端值、空值、null 等情況
+
+### 第二階段：修正失敗測試
+
+#### 1. 執行測試並檢查結果
+
+```bash
+# 執行特定測試檔案
+./vendor/bin/phpunit tests/Task/TaskControllerTest.php
+
+# 執行時顯示詳細錯誤訊息
+./vendor/bin/phpunit tests/Task/TaskControllerTest.php --verbose
+```
+
+#### 2. 分析失敗原因
+
+常見的測試失敗原因：
+- **斷言錯誤**：預期結果與實際結果不符
+- **資料庫狀態問題**：測試資料準備不正確
+- **Mock/Stub 設定錯誤**：模擬物件行為不符合預期
+- **環境設定問題**：測試環境配置不正確
+- **程式邏輯錯誤**：待測程式碼本身有 bug
+
+#### 3. 修正測試案例
+
+修正原則：
+1. **先確認程式邏輯正確**：檢查待測程式碼是否有問題
+2. **修正測試案例**：調整測試案例以符合實際行為
+3. **更新斷言**：確保斷言符合預期結果
+4. **重新執行測試**：確認修正後測試通過
+
+```bash
+# 持續執行直到所有測試通過
+./vendor/bin/phpunit tests/Task/TaskControllerTest.php
+```
+
+### 第三階段：補足測試案例
+
+#### 1. 讀取原始程式碼
+
+詳細分析待測試的檔案，了解：
+- 所有 public 方法的功能
+- 每個方法的參數和返回值
+- 業務邏輯的條件分支
+- 可能的異常情況
+- 資料驗證規則
+
+#### 2. 規劃需要補足的測試案例
+
+根據測試完整性要求（參考 [Create-Unit-Test-Rule.mdc](mdc:Create-Unit-Test-Rule.mdc)），補足以下類型的測試：
+
+**必須補足的測試類型：**
+
+##### A. Controller 測試
+```php
+// ✅ CRUD 操作的成功案例
+- test_whenCreate{Resource}_givenValidData_thenCreatedSuccessfully()
+- test_whenRead{Resource}_givenExistingId_thenReturnsResource()
+- test_whenUpdate{Resource}_givenValidData_thenUpdatedSuccessfully()
+- test_whenDelete{Resource}_givenExistingId_thenDeletedSuccessfully()
+- test_whenList{Resources}_givenNoFilter_thenReturnsAllResources()
+
+// ✅ 資料驗證失敗案例
+- test_whenCreate{Resource}_givenMissing{Field}_thenValidationFails()
+- test_whenCreate{Resource}_givenInvalid{Field}_thenValidationFails()
+- test_whenUpdate{Resource}_givenInvalid{Field}_thenValidationFails()
+
+// ✅ 資源不存在案例
+- test_whenRead{Resource}_givenNonExistentId_thenReturns404()
+- test_whenUpdate{Resource}_givenNonExistentId_thenReturns404()
+- test_whenDelete{Resource}_givenNonExistentId_thenReturns404()
+
+// ✅ 邊界值測試
+- test_whenCreate{Resource}_given{BoundaryCondition}_then{ExpectedResult}()
+- test_whenUpdate{Resource}_givenEmptyData_thenValidationFails()
+
+// ✅ 業務邏輯測試
+- test_when{Action}_given{BusinessCondition}_then{BusinessRule}()
+```
+
+##### B. Model 測試
+```php
+// ✅ 屬性與關聯測試
+- test_whenCreate{Model}_givenAttributes_thenAttributesAreFillable()
+- test_when{Model}_givenRelations_thenRelationsWork()
+
+// ✅ 驗證規則測試
+- test_when{Model}_givenInvalidData_thenValidationFails()
+
+// ✅ 業務邏輯方法測試
+- test_when{Method}_given{Condition}_then{Result}()
+```
+
+##### C. Service 測試
+```php
+// ✅ 服務方法測試
+- test_when{ServiceMethod}_givenValidInput_thenReturnsExpectedResult()
+- test_when{ServiceMethod}_givenInvalidInput_thenThrowsException()
+- test_when{ServiceMethod}_givenEdgeCase_thenHandlesCorrectly()
+```
+
+#### 3. 撰寫測試案例
+
+**必須遵循的規範：**
+
+所有新增的測試案例必須完全遵循 [Create-Unit-Test-Rule.mdc](mdc:Create-Unit-Test-Rule.mdc) 的規範：
+
+✅ **GWT (Given-When-Then) 格式命名**
+```php
+public function test_when{行為}_given{前置條件}_then{預期結果}()
+```
+
+✅ **結構化註解**
+```php
+/**
+ * User Story: 作為一個{角色}，我想要{目標}，以便{價值/原因}
+ * 
+ * Given: {描述前置條件}
+ * When: {描述執行的行為}
+ * Then: {描述預期的結果}
+ * 
+ * @test
+ */
+```
+
+✅ **測試內容結構**
+```php
+// Given: 準備測試資料和環境
+// When: 執行要測試的行為
+// Then: 驗證預期結果
+```
+
+✅ **使用 RefreshDatabase Trait**
+```php
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+class YourTest extends TestCase
+{
+    use RefreshDatabase;
+}
+```
+
+#### 4. 測試案例範例
+
+參考 [Create-Unit-Test-Rule.mdc](mdc:Create-Unit-Test-Rule.mdc) 中的完整範例。
+
+**額外補充：邊界值測試範例**
+
+```php
+/**
+ * User Story: 作為一個系統使用者，當我嘗試建立超過長度限制的標題時，系統應該拒絕
+ * 
+ * Given: 提供超過 255 字元的標題
+ * When: 發送 POST 請求到 /api/tasks
+ * Then: 返回 422 驗證錯誤
+ * 
+ * @test
+ */
+public function test_whenCreateTask_givenTitleExceedsMaxLength_thenValidationFails()
+{
+    // Given: 準備超長標題的任務資料
+    $taskData = [
+        'title' => str_repeat('A', 256), // 超過 255 字元
+        'description' => '測試描述',
+        'status' => 'pending'
+    ];
+
+    // When: 發送建立任務的請求
+    $response = $this->postJson('/api/tasks', $taskData);
+
+    // Then: 驗證返回驗證錯誤
+    $response->assertStatus(422)
+             ->assertJsonValidationErrors(['title']);
+}
+
+/**
+ * User Story: 作為一個系統使用者，我想要能夠建立剛好在長度限制內的標題
+ * 
+ * Given: 提供剛好 255 字元的標題
+ * When: 發送 POST 請求到 /api/tasks
+ * Then: 任務成功建立
+ * 
+ * @test
+ */
+public function test_whenCreateTask_givenTitleAtMaxLength_thenTaskCreatedSuccessfully()
+{
+    // Given: 準備最大長度標題的任務資料
+    $taskData = [
+        'title' => str_repeat('A', 255), // 剛好 255 字元
+        'description' => '測試描述',
+        'status' => 'pending'
+    ];
+
+    // When: 發送建立任務的請求
+    $response = $this->postJson('/api/tasks', $taskData);
+
+    // Then: 驗證任務成功建立
+    $response->assertStatus(201);
+    $this->assertDatabaseHas('tasks', [
+        'title' => str_repeat('A', 255)
+    ]);
+}
+
+/**
+ * User Story: 作為一個系統使用者，當我嘗試更新不存在的任務時，系統應該返回 404 錯誤
+ * 
+ * Given: 使用一個不存在的任務 ID
+ * When: 發送 PUT 請求到 /api/tasks/{id}
+ * Then: 返回 404 狀態碼
+ * 
+ * @test
+ */
+public function test_whenUpdateTask_givenNonExistentId_thenReturns404()
+{
+    // Given: 使用不存在的任務 ID
+    $nonExistentId = 99999;
+    $updateData = ['title' => '更新的標題'];
+
+    // When: 嘗試更新該任務
+    $response = $this->putJson("/api/tasks/{$nonExistentId}", $updateData);
+
+    // Then: 驗證返回 404 錯誤
+    $response->assertStatus(404);
+}
+```
+
+### 第四階段：驗證與迭代
+
+#### 1. 執行測試確認通過
+
+```bash
+# 執行新增的測試案例
+./vendor/bin/phpunit tests/Task/TaskControllerTest.php
+
+# 確認所有測試都通過
+# 預期輸出：OK (X tests, Y assertions)
+```
+
+#### 2. 執行覆蓋率檢測
+
+```bash
+# 再次執行覆蓋率測試
+./vendor/bin/phpunit tests/Task/TaskControllerTest.php --coverage-text
+
+# 或使用 Laravel Artisan
+php artisan test tests/Task/TaskControllerTest.php --coverage
+```
+
+#### 3. 分析覆蓋率結果
+
+檢查覆蓋率是否達標：
+- ✅ Lines 行覆蓋率 ≥ 80%
+- ✅ Methods 方法覆蓋率 ≥ 80%
+- ✅ 所有 public 方法都有測試
+- ✅ 關鍵業務邏輯都有覆蓋
+
+#### 4. 若未達標則繼續補足
+
+如果覆蓋率仍未達到 80%：
+1. 重新檢查覆蓋率報告，找出未覆蓋的程式碼
+2. 分析未覆蓋的原因（難以測試？遺漏的分支？）
+3. 補足對應的測試案例
+4. 重新執行測試和覆蓋率檢測
+5. 重複此流程直到達標
+
+#### 5. 若測試失敗則修正
+
+如果新增的測試案例執行失敗：
+1. 分析失敗原因
+2. 修正測試案例或待測程式碼
+3. 重新執行測試
+4. 確認所有測試通過後，再檢查覆蓋率
+
+### 第五階段：報告結果
+
+#### 1. 顯示最終覆蓋率
+
+執行最終覆蓋率報告：
+```bash
+./vendor/bin/phpunit tests/Task/TaskControllerTest.php --coverage-text
+```
+
+#### 2. 輸出關鍵指標
+
+報告應包含：
+- ✅ 測試檔案名稱
+- ✅ 待測程式碼檔案名稱
+- ✅ 總測試案例數量
+- ✅ 通過/失敗的測試數量
+- ✅ Lines 行覆蓋率百分比
+- ✅ Methods 方法覆蓋率百分比
+- ✅ 是否達到 80% 目標
+
+#### 3. 總結報告格式範例
+
+```
+📊 測試覆蓋率報告
+=====================================
+測試檔案: tests/Task/TaskControllerTest.php
+待測檔案: app/Http/Controllers/TaskController.php
+
+測試執行結果:
+✅ 通過: 15 個測試
+❌ 失敗: 0 個測試
+📝 總斷言數: 45 個
+
+覆蓋率結果:
+📈 Lines (行覆蓋率): 85.5% ✅ 達標
+📈 Methods (方法覆蓋率): 90.0% ✅ 達標
+📈 Classes (類別覆蓋率): 100% ✅
+
+新增測試案例:
+1. test_whenUpdateTask_givenValidData_thenUpdatedSuccessfully
+2. test_whenUpdateTask_givenMissingTitle_thenValidationFails
+3. test_whenUpdateTask_givenNonExistentId_thenReturns404
+4. test_whenDeleteTask_givenExistingId_thenDeletedSuccessfully
+5. test_whenDeleteTask_givenNonExistentId_thenReturns404
+
+結論: ✅ 測試覆蓋率已達到 80% 以上的目標
+```
+
+## 測試覆蓋率提升策略
+
+### 優先順序
+
+1. **高優先級**（必須達到 80%+）
+   - Controller 的 public 方法
+   - 核心業務邏輯
+   - 資料驗證流程
+   - 錯誤處理機制
+
+2. **中優先級**（建議覆蓋）
+   - Service 層的業務邏輯
+   - Model 的自定義方法
+   - 重要的條件分支
+
+3. **低優先級**（選擇性覆蓋）
+   - Getter/Setter 方法
+   - 簡單的資料轉換
+   - 框架自動產生的方法
+
+### 常見未覆蓋情境及解決方案
+
+#### 1. 條件分支未覆蓋
+**問題：** if/else、switch/case 的某些分支沒有測試
+**解決：** 為每個分支條件撰寫對應的測試案例
+
+#### 2. 異常處理未覆蓋
+**問題：** try/catch、throw 等異常處理邏輯未測試
+**解決：** 設計觸發異常的測試情境
+
+#### 3. 私有方法未覆蓋
+**問題：** private 方法無法直接測試
+**解決：** 通過測試 public 方法來間接覆蓋 private 方法
+
+#### 4. 邊界值未覆蓋
+**問題：** 極端值、null、空陣列等特殊情況未測試
+**解決：** 補充邊界值和極端情況的測試案例
+
+## 注意事項
+
+### 測試品質優先於數量
+- ❌ 不要為了覆蓋率而寫無意義的測試
+- ✅ 每個測試都應該驗證有價值的行為
+- ✅ 測試應該易於理解和維護
+
+### 遵循既有規範
+- 必須完全遵循 [Create-Unit-Test-Rule.mdc](mdc:Create-Unit-Test-Rule.mdc) 的所有規範
+- 測試命名、結構、註解格式保持一致
+- 使用相同的測試工具和斷言方式
+
+### 測試獨立性
+- 每個測試案例應該獨立執行
+- 使用 RefreshDatabase 確保資料庫狀態乾淨
+- 不依賴其他測試的執行順序或結果
+
+### 效能考量
+- 避免在測試中執行真實的外部 API 請求
+- 善用 Mock、Fake、Stub 來模擬依賴
+- 測試執行時間應該合理（單個測試 < 1 秒）
+
+### 持續維護
+- 當程式碼修改時，同步更新測試案例
+- 定期檢查測試覆蓋率，避免退步
+- 重構測試案例以提升可讀性和可維護性
+
+## 相關資源
+
+- [Create-Unit-Test-Rule.mdc](mdc:Create-Unit-Test-Rule.mdc) - 測試撰寫規範
+- [phpunit.xml](mdc:phpunit.xml) - PHPUnit 配置檔
+- [tests/TestCase.php](mdc:tests/TestCase.php) - 測試基底類別
+- Laravel Testing Documentation - Laravel 官方測試文件
+
+## 工具與指令速查
+
+```bash
+# 查看覆蓋率（文字格式）
+./vendor/bin/phpunit --coverage-text
+
+# 查看特定檔案覆蓋率
+./vendor/bin/phpunit tests/Task/TaskControllerTest.php --coverage-text
+
+# 產生 HTML 覆蓋率報告
+./vendor/bin/phpunit --coverage-html coverage
+
+# 執行測試並顯示詳細資訊
+./vendor/bin/phpunit --verbose
+
+# 執行特定測試方法
+./vendor/bin/phpunit --filter test_methodName
+
+# 使用 Laravel Artisan 執行測試
+php artisan test --coverage
+
+# 執行測試並顯示執行時間
+php artisan test --profile
+```
+
+## 執行檢查清單
+
+執行此規則時，請依序檢查以下項目：
+
+- [ ] 1. 執行覆蓋率測試，確認目前覆蓋率
+- [ ] 2. 執行所有測試，檢查是否有失敗案例
+- [ ] 3. 修正所有失敗的測試案例
+- [ ] 4. 分析覆蓋率報告，識別未覆蓋的程式碼
+- [ ] 5. 讀取待測程式碼，理解業務邏輯
+- [ ] 6. 規劃需要補足的測試案例
+- [ ] 7. 撰寫新測試案例（遵循 GWT 格式）
+- [ ] 8. 執行測試，確認所有測試通過
+- [ ] 9. 再次執行覆蓋率測試
+- [ ] 10. 若未達 80%，回到步驟 4 繼續補足
+- [ ] 11. 達標後，輸出最終覆蓋率報告
+- [ ] 12. 完成，不產生檔案
+
+## 成功標準
+
+✅ 所有測試案例執行通過（0 failures）
+✅ Lines 行覆蓋率 ≥ 80%
+✅ Methods 方法覆蓋率 ≥ 80%
+✅ 所有 public 方法都有測試案例
+✅ 成功和失敗案例都有覆蓋
+✅ 關鍵業務邏輯分支都有測試
+✅ 測試案例遵循 GWT 格式和命名規範
+✅ 顯示最終覆蓋率報告（不產生檔案）

@@ -1,0 +1,330 @@
+---
+alwaysApply: true
+---
+# 測試案例撰寫規範 (Create Unit Test Rule)
+
+## 使用時機
+
+此規則應用於以下兩種情境：
+1. **新增測試案例**：根據需求規格撰寫新的測試案例
+2. **功能修改時**：當功能程式碼被修改時，同步更新對應的測試案例
+
+## 核心撰寫規範
+
+### 1. GWT (Given-When-Then) 格式
+
+所有測試案例必須遵循 GWT 格式進行撰寫：
+
+#### 測試方法命名
+```php
+public function test_when_{行為}_given_{前置條件}_then_{預期結果}()
+```
+
+**命名規則：**
+- 全部使用小寫字母，並以底線分隔各個單字（snake_case）
+- `test_when_` 後面接行為描述
+- `given_` 後面接前置條件描述
+- `then_` 後面接預期結果描述
+- 不使用駝峰式命名，全部使用底線分隔
+
+**範例：**
+- `test_when_create_task_given_valid_data_then_task_created_successfully()`
+- `test_when_get_all_tasks_given_tasks_exist_then_returns_all_tasks_ordered_by_created_at()`
+- `test_when_update_task_given_invalid_data_then_validation_fails()`
+
+#### 測試內容結構
+```php
+// Given: 準備測試資料和環境
+$task = Task::factory()->create([...]);
+
+// When: 執行要測試的行為
+$response = $this->postJson('/api/tasks', $data);
+
+// Then: 驗證預期結果
+$response->assertStatus(200);
+$this->assertDatabaseHas('tasks', [...]);
+```
+
+#### 測試註解格式
+每個測試方法必須包含結構化註解：
+
+```php
+/**
+ * User Story: 作為一個{角色}，我想要{目標}，以便{價值/原因}
+ * 
+ * Given: {描述前置條件}
+ * When: {描述執行的行為}
+ * Then: {描述預期的結果}
+ * 
+ * @test
+ */
+```
+
+### 2. 測試案例類型
+
+#### 必須撰寫的測試類型：
+
+**Success Case (成功案例)**
+- 正常流程的驗證
+- 各種有效輸入的組合
+- 邊界值內的有效數據
+
+**Fail Case (失敗案例)**
+- 無效輸入的處理
+- 必填欄位缺失
+- 資料驗證失敗
+- 權限不足
+- 資源不存在 (404)
+- 業務邏輯限制
+
+### 3. 測試資料庫配置
+
+#### 測試環境設定
+所有測試必須在測試資料庫中執行，相關配置參考：
+- [phpunit.xml](mdc:phpunit.xml) - 測試環境配置
+- [tests/TestCase.php](mdc:tests/TestCase.php) - 測試基底類別
+
+#### 必須使用的 Trait
+```php
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+class YourTest extends TestCase
+{
+    use RefreshDatabase;
+}
+```
+
+這確保每次測試執行後資料庫會重置，避免測試間相互影響。
+
+### 4. 參考既有測試案例
+
+撰寫新測試前，請參考：
+- 專案既有的測試檔案結構
+- [app/Http/Controllers/TaskController.php](mdc:app/Http/Controllers/TaskController.php) - 參考實際業務邏輯
+- [app/Models/Task.php](mdc:app/Models/Task.php) - 參考 Model 定義和關聯
+- Laravel 測試最佳實踐
+
+### 5. 測試完整性要求
+
+每個功能至少需要包含：
+- ✅ 基本 CRUD 操作測試（如適用）
+- ✅ 資料驗證測試（成功和失敗）
+- ✅ 邊界值測試
+- ✅ 錯誤處理測試
+- ✅ 狀態碼驗證
+- ✅ 資料庫狀態驗證
+- ✅ JSON 響應結構驗證
+
+### 6. 自動執行與修正流程
+
+撰寫完成測試後，必須：
+1. **執行測試**：使用 `./vendor/bin/phpunit` 或 `php artisan test`
+2. **檢查結果**：確認所有測試通過
+3. **修正錯誤**：若有失敗，分析原因並修正
+4. **重複執行**：直到所有測試完全通過
+5. **確認覆蓋率**：確保新功能有足夠的測試覆蓋
+
+## 測試案例範例模板
+
+### Controller API 測試範例
+
+```php
+<?php
+
+namespace Tests\Task;
+
+use Tests\TestCase;
+use App\Models\Task;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+class TaskControllerTest extends TestCase
+{
+    use RefreshDatabase;
+
+    /**
+     * User Story: 作為一個系統使用者，我想要成功建立一個新任務，以便追蹤和管理我的工作項目
+     * 
+     * Given: 提供有效的任務資料（標題、描述等）
+     * When: 發送 POST 請求到 /api/tasks
+     * Then: 任務成功建立，返回 201 狀態碼，資料庫中存在該任務
+     * 
+     * @test
+     */
+    public function test_when_create_task_given_valid_data_then_task_created_successfully()
+    {
+        // Given: 準備有效的任務資料
+        $taskData = [
+            'title' => '測試任務',
+            'description' => '這是一個測試任務的描述',
+            'status' => 'pending',
+            'priority' => 1,
+            'due_date' => '2025-12-31'
+        ];
+
+        // When: 發送建立任務的請求
+        $response = $this->postJson('/api/tasks', $taskData);
+
+        // Then: 驗證回應和資料庫狀態
+        $response->assertStatus(201)
+                 ->assertJson([
+                     'success' => true,
+                     'message' => '任務建立成功'
+                 ])
+                 ->assertJsonStructure([
+                     'success',
+                     'message',
+                     'data' => [
+                         'id',
+                         'title',
+                         'description',
+                         'status',
+                         'priority',
+                         'due_date',
+                         'created_at',
+                         'updated_at'
+                     ]
+                 ]);
+
+        $this->assertDatabaseHas('tasks', [
+            'title' => '測試任務',
+            'status' => 'pending'
+        ]);
+    }
+
+    /**
+     * User Story: 作為一個系統使用者，當我嘗試建立缺少必填欄位的任務時，系統應該拒絕並提示錯誤
+     * 
+     * Given: 提供缺少必填欄位（title）的任務資料
+     * When: 發送 POST 請求到 /api/tasks
+     * Then: 返回 422 驗證錯誤，任務未建立
+     * 
+     * @test
+     */
+    public function test_when_create_task_given_missing_title_then_validation_fails()
+    {
+        // Given: 準備缺少 title 的任務資料
+        $taskData = [
+            'description' => '缺少標題的任務',
+            'status' => 'pending'
+        ];
+
+        // When: 發送建立任務的請求
+        $response = $this->postJson('/api/tasks', $taskData);
+
+        // Then: 驗證返回驗證錯誤
+        $response->assertStatus(422)
+                 ->assertJson([
+                     'success' => false,
+                     'message' => '驗證失敗'
+                 ])
+                 ->assertJsonValidationErrors(['title']);
+
+        // 確認資料庫中沒有新增任務
+        $this->assertDatabaseCount('tasks', 0);
+    }
+
+    /**
+     * User Story: 作為一個系統使用者，當我嘗試取得不存在的任務時，系統應該返回 404 錯誤
+     * 
+     * Given: 使用一個不存在的任務 ID
+     * When: 發送 GET 請求到 /api/tasks/{id}
+     * Then: 返回 404 狀態碼和錯誤訊息
+     * 
+     * @test
+     */
+    public function test_when_get_task_given_non_existent_id_then_returns_404()
+    {
+        // Given: 使用不存在的任務 ID
+        $nonExistentId = 99999;
+
+        // When: 嘗試取得該任務
+        $response = $this->getJson("/api/tasks/{$nonExistentId}");
+
+        // Then: 驗證返回 404 錯誤
+        $response->assertStatus(404)
+                 ->assertJson([
+                     'success' => false,
+                     'message' => '任務不存在'
+                 ]);
+    }
+}
+```
+
+### Model 測試範例
+
+```php
+<?php
+
+namespace Tests\Task;
+
+use Tests\TestCase;
+use App\Models\Task;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+class TaskModelTest extends TestCase
+{
+    use RefreshDatabase;
+
+    /**
+     * User Story: 作為一個開發者，我需要確保 Task Model 的屬性可以正確填充
+     * 
+     * Given: 建立一個 Task 實例
+     * When: 設定各項屬性值
+     * Then: 所有屬性都能正確儲存和讀取
+     * 
+     * @test
+     */
+    public function test_when_create_task_given_attributes_then_attributes_are_fillable()
+    {
+        // Given & When: 建立帶有屬性的任務
+        $task = Task::create([
+            'title' => '測試任務',
+            'description' => '描述',
+            'status' => 'pending',
+            'priority' => 1,
+            'due_date' => '2025-12-31'
+        ]);
+
+        // Then: 驗證屬性正確儲存
+        $this->assertEquals('測試任務', $task->title);
+        $this->assertEquals('pending', $task->status);
+        $this->assertEquals(1, $task->priority);
+    }
+}
+```
+
+## 測試執行指令
+
+```bash
+# 執行所有測試
+./vendor/bin/phpunit
+
+# 或使用 Laravel Artisan
+php artisan test
+
+# 執行特定測試套件
+./vendor/bin/phpunit --testsuite=Task
+
+# 執行特定測試檔案
+./vendor/bin/phpunit tests/Task/TaskControllerTest.php
+
+# 執行特定測試方法
+./vendor/bin/phpunit --filter test_when_create_task_given_valid_data_then_task_created_successfully
+```
+
+## 注意事項
+
+1. **命名一致性**：所有測試方法必須以 `test_` 開頭或使用 `@test` 註解
+2. **獨立性**：每個測試應該獨立運行，不依賴其他測試的執行順序或結果
+3. **清晰性**：測試名稱應該清楚描述測試內容，讓人一看就懂
+4. **完整性**：不要只測試快樂路徑，失敗案例同樣重要
+5. **維護性**：當功能變更時，記得同步更新測試案例
+6. **效能**：避免在測試中執行耗時操作，善用 Mock 和 Fake
+
+## 測試覆蓋目標
+
+- ✅ 每個 Controller 方法都有對應測試
+- ✅ 每個驗證規則都有成功和失敗案例
+- ✅ 每個業務邏輯分支都有測試
+- ✅ 關鍵 Model 方法都有單元測試
+- ✅ 邊界條件和異常情況都有覆蓋
