@@ -6,11 +6,13 @@ use App\Models\Tag;
 use App\Models\Task;
 use App\Rules\TagName;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Validator as LaravelValidator;
 
 class TaskController extends Controller
 {
@@ -47,76 +49,12 @@ class TaskController extends Controller
     public function store(Request $request): JsonResponse
     {
         try {
-            $validator = Validator::make($request->all(), [
-                'title' => 'required|string|max:255',
-                'description' => 'nullable|string',
-                'status' => 'nullable|in:pending,in_progress,completed',
-                'priority' => 'nullable|integer|in:1,2,3',
-                'due_date' => 'nullable|date',
-                'new_tag_name' => ['sometimes', 'required', 'string', new TagName],
-                'tag_ids' => ['sometimes', 'array'],
-                'tag_ids.*' => ['integer', 'distinct', 'exists:tags,id'],
-                'new_tag_names' => ['sometimes', 'array'],
-                'new_tag_names.*' => ['required', 'string', new TagName],
-            ]);
-
-            $validator->after(function ($validator) use ($request): void {
-                $tagIds = $request->input('tag_ids', []);
-                $newTagNames = $request->input('new_tag_names', []);
-                $tagCount = (is_array($tagIds) ? count($tagIds) : 0)
-                    + (is_array($newTagNames) ? count($newTagNames) : 0)
-                    + ($request->has('new_tag_name') ? 1 : 0);
-
-                if ($tagCount > 10) {
-                    $validator->errors()->add('tags', '一項任務最多只能選擇 10 個標籤。');
-                }
-
-                $newTags = [];
-                foreach ((array) $request->input('new_tag_names', []) as $index => $name) {
-                    $newTags["new_tag_names.{$index}"] = $name;
-                }
-
-                if ($request->has('new_tag_name')) {
-                    $newTags['new_tag_name'] = $request->input('new_tag_name');
-                }
-
-                $seenNames = [];
-                foreach ($newTags as $field => $name) {
-                    if (! is_string($name) || $name === '') {
-                        continue;
-                    }
-
-                    $normalizedName = Tag::normalizeName($name);
-                    $alreadyExists = isset($seenNames[$normalizedName])
-                        || Tag::query()->where('normalized_name', $normalizedName)->exists();
-
-                    if ($alreadyExists) {
-                        $validator->errors()->add($field, '標籤已存在，請從選項中選取');
-                    }
-
-                    $seenNames[$normalizedName] = true;
-                }
-            });
-
-            $validated = $validator->validate();
+            $validated = $this->validateTaskPayload($request, true);
 
             $task = DB::transaction(function () use ($validated): Task {
-                $tagIds = $validated['tag_ids'] ?? [];
-                $newTagNames = $validated['new_tag_names'] ?? [];
-
-                if (array_key_exists('new_tag_name', $validated)) {
-                    $newTagNames[] = $validated['new_tag_name'];
-                }
-
-                unset($validated['new_tag_name'], $validated['new_tag_names'], $validated['tag_ids']);
-
-                $task = Task::create($validated);
-
-                foreach ($newTagNames as $newTagName) {
-                    $tagIds[] = Tag::createFromName($newTagName)->id;
-                }
-
-                $task->tags()->sync($tagIds);
+                [$tagIds, $newTags] = $this->tagSelection($validated);
+                $task = Task::create($this->taskAttributes($validated));
+                $this->syncTaskTags($task, $tagIds, $newTags);
 
                 return $task->load('tags');
             });
@@ -170,77 +108,15 @@ class TaskController extends Controller
                 ], 404);
             }
 
-            $validator = Validator::make($request->all(), [
-                'title' => 'sometimes|required|string|max:255',
-                'description' => 'nullable|string',
-                'status' => 'sometimes|in:pending,in_progress,completed',
-                'priority' => 'sometimes|integer|in:1,2,3',
-                'due_date' => 'nullable|date',
-                'new_tag_name' => ['sometimes', 'required', 'string', new TagName],
-                'tag_ids' => ['sometimes', 'array'],
-                'tag_ids.*' => ['integer', 'distinct', 'exists:tags,id'],
-                'new_tag_names' => ['sometimes', 'array'],
-                'new_tag_names.*' => ['required', 'string', new TagName],
-            ]);
-
-            $validator->after(function ($validator) use ($request): void {
-                $tagIds = $request->input('tag_ids', []);
-                $newTagNames = $request->input('new_tag_names', []);
-                $tagCount = (is_array($tagIds) ? count($tagIds) : 0)
-                    + (is_array($newTagNames) ? count($newTagNames) : 0)
-                    + ($request->has('new_tag_name') ? 1 : 0);
-
-                if ($tagCount > 10) {
-                    $validator->errors()->add('tags', '一項任務最多只能選擇 10 個標籤。');
-                }
-
-                $newTags = [];
-                foreach ((array) $request->input('new_tag_names', []) as $index => $name) {
-                    $newTags["new_tag_names.{$index}"] = $name;
-                }
-
-                if ($request->has('new_tag_name')) {
-                    $newTags['new_tag_name'] = $request->input('new_tag_name');
-                }
-
-                $seenNames = [];
-                foreach ($newTags as $field => $name) {
-                    if (! is_string($name) || $name === '') {
-                        continue;
-                    }
-
-                    $normalizedName = Tag::normalizeName($name);
-                    $alreadyExists = isset($seenNames[$normalizedName])
-                        || Tag::query()->where('normalized_name', $normalizedName)->exists();
-
-                    if ($alreadyExists) {
-                        $validator->errors()->add($field, '標籤已存在，請從選項中選取');
-                    }
-
-                    $seenNames[$normalizedName] = true;
-                }
-            });
-
-            $validated = $validator->validate();
+            $validated = $this->validateTaskPayload($request, false);
             $tagsSubmitted = $request->hasAny(['tag_ids', 'new_tag_names', 'new_tag_name']);
 
             $task = DB::transaction(function () use ($task, $validated, $tagsSubmitted): Task {
-                $tagIds = $validated['tag_ids'] ?? [];
-                $newTagNames = $validated['new_tag_names'] ?? [];
-
-                if (array_key_exists('new_tag_name', $validated)) {
-                    $newTagNames[] = $validated['new_tag_name'];
-                }
-
-                unset($validated['new_tag_name'], $validated['new_tag_names'], $validated['tag_ids']);
-                $task->update($validated);
+                [$tagIds, $newTags] = $this->tagSelection($validated);
+                $task->update($this->taskAttributes($validated));
 
                 if ($tagsSubmitted) {
-                    foreach ($newTagNames as $newTagName) {
-                        $tagIds[] = Tag::createFromName($newTagName)->id;
-                    }
-
-                    $task->tags()->sync($tagIds);
+                    $this->syncTaskTags($task, $tagIds, $newTags);
                 }
 
                 return $task->load('tags');
@@ -306,6 +182,12 @@ class TaskController extends Controller
             if ($tag === 'untagged') {
                 $query->doesntHave('tags');
             } elseif (ctype_digit((string) $tag)) {
+                if (! Tag::query()->whereKey((int) $tag)->exists()) {
+                    throw ValidationException::withMessages([
+                        'tag' => ['標籤篩選條件無效。'],
+                    ]);
+                }
+
                 $query->whereHas('tags', function ($tagQuery) use ($tag): void {
                     $tagQuery->where('tags.id', (int) $tag);
                 });
@@ -374,5 +256,125 @@ class TaskController extends Controller
         $query->orderBy($sortBy, $sortOrder);
 
         return [$sortBy, $sortOrder];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validateTaskPayload(Request $request, bool $creating): array
+    {
+        $validator = Validator::make($request->all(), [
+            'title' => $creating
+                ? ['required', 'string', 'max:255']
+                : ['sometimes', 'required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'status' => $creating
+                ? ['nullable', 'in:pending,in_progress,completed']
+                : ['sometimes', 'in:pending,in_progress,completed'],
+            'priority' => $creating
+                ? ['nullable', 'integer', 'in:1,2,3']
+                : ['sometimes', 'integer', 'in:1,2,3'],
+            'due_date' => ['nullable', 'date'],
+            'new_tag_name' => ['sometimes', 'required', 'string', new TagName],
+            'tag_ids' => ['sometimes', 'array'],
+            'tag_ids.*' => ['integer', 'distinct', 'exists:tags,id'],
+            'new_tag_names' => ['sometimes', 'array'],
+            'new_tag_names.*' => ['required', 'string', new TagName],
+        ]);
+
+        $validator->after(function (LaravelValidator $validator) use ($request): void {
+            $this->validateTagSelection($validator, $request);
+        });
+
+        return $validator->validate();
+    }
+
+    private function validateTagSelection(LaravelValidator $validator, Request $request): void
+    {
+        $tagIds = $request->input('tag_ids', []);
+        $newTagNames = $request->input('new_tag_names', []);
+        $tagCount = (is_array($tagIds) ? count($tagIds) : 0)
+            + (is_array($newTagNames) ? count($newTagNames) : 0)
+            + ($request->exists('new_tag_name') ? 1 : 0);
+
+        if ($tagCount > 10) {
+            $validator->errors()->add('tags', '一項任務最多只能選擇 10 個標籤。');
+        }
+
+        $newTags = [];
+        if (is_array($newTagNames)) {
+            foreach ($newTagNames as $index => $name) {
+                $newTags["new_tag_names.{$index}"] = $name;
+            }
+        }
+
+        if ($request->exists('new_tag_name')) {
+            $newTags['new_tag_name'] = $request->input('new_tag_name');
+        }
+
+        $seenNames = [];
+        foreach ($newTags as $field => $name) {
+            if (! is_string($name) || $name === '' || $validator->errors()->has($field)) {
+                continue;
+            }
+
+            $normalizedName = Tag::normalizeName($name);
+            $alreadyExists = isset($seenNames[$normalizedName])
+                || Tag::query()->where('normalized_name', $normalizedName)->exists();
+
+            if ($alreadyExists) {
+                $validator->errors()->add($field, '標籤已存在，請從選項中選取');
+            }
+
+            $seenNames[$normalizedName] = true;
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array{0: list<int>, 1: array<string, string>}
+     */
+    private function tagSelection(array $validated): array
+    {
+        $newTags = [];
+        foreach ($validated['new_tag_names'] ?? [] as $index => $name) {
+            $newTags["new_tag_names.{$index}"] = $name;
+        }
+
+        if (array_key_exists('new_tag_name', $validated)) {
+            $newTags['new_tag_name'] = $validated['new_tag_name'];
+        }
+
+        return [$validated['tag_ids'] ?? [], $newTags];
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function taskAttributes(array $validated): array
+    {
+        unset($validated['new_tag_name'], $validated['new_tag_names'], $validated['tag_ids']);
+
+        return $validated;
+    }
+
+    /**
+     * @param  list<int>  $tagIds
+     * @param  array<string, string>  $newTags
+     */
+    private function syncTaskTags(Task $task, array $tagIds, array $newTags): void
+    {
+        foreach ($newTags as $field => $name) {
+            try {
+                $tagIds[] = Tag::createFromName($name)->id;
+            } catch (UniqueConstraintViolationException) {
+                throw ValidationException::withMessages([
+                    $field => ['標籤已存在，請從選項中選取'],
+                ]);
+            }
+        }
+
+        $task->tags()->sync($tagIds);
     }
 }

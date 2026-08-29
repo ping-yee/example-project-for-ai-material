@@ -741,7 +741,7 @@
                             <div id="tagEntry" class="tag-entry" hidden>
                                 <div class="form-group">
                                     <label for="newTagName">新標籤名稱 *</label>
-                                    <input type="text" id="newTagName" aria-describedby="newTagNameError" placeholder="例如：重要 🚀" maxlength="200">
+                                    <input type="text" id="newTagName" aria-describedby="newTagNameError" placeholder="例如：重要 🚀">
                                 </div>
                                 <button type="button" id="confirmTagBtn" class="btn btn-success">加入</button>
                                 <button type="button" id="cancelTagBtn" class="btn btn-warning">取消</button>
@@ -1012,10 +1012,13 @@
             }
 
             async refreshTasks() {
-                if (this.activeMode === 'search') return this.performSearch();
-                if (this.activeMode === 'filter') return this.applyFilter();
-                if (this.activeMode === 'tag') return this.applyTagFilter(document.getElementById('filterTag').value);
-                return this.loadTasks();
+                const modeLoaders = {
+                    search: () => this.performSearch(),
+                    filter: () => this.applyFilter(),
+                    tag: () => this.applyTagFilter(document.getElementById('filterTag').value),
+                };
+
+                return (modeLoaders[this.activeMode] || (() => this.loadTasks()))();
             }
 
             sortParams() {
@@ -1552,23 +1555,26 @@
 
             clearOtherModes(modeToKeep) {
                 document.querySelectorAll('.search-results-info, .filter-summary').forEach(element => element.remove());
+                const modeResetters = {
+                    search: () => {
+                        document.getElementById('searchInput').value = '';
+                        document.getElementById('clearSearchBtn').style.display = 'none';
+                    },
+                    filter: () => {
+                        document.getElementById('filterStatus').value = 'all';
+                        document.getElementById('filterPriority').value = 'all';
+                        document.getElementById('filterDateFrom').value = '';
+                        document.getElementById('filterDateTo').value = '';
+                        document.querySelector('.filter-form').classList.remove('filter-active');
+                    },
+                    tag: () => {
+                        document.getElementById('filterTag').value = 'all';
+                    },
+                };
 
-                if (modeToKeep !== 'search') {
-                    document.getElementById('searchInput').value = '';
-                    document.getElementById('clearSearchBtn').style.display = 'none';
-                }
-
-                if (modeToKeep !== 'filter') {
-                    document.getElementById('filterStatus').value = 'all';
-                    document.getElementById('filterPriority').value = 'all';
-                    document.getElementById('filterDateFrom').value = '';
-                    document.getElementById('filterDateTo').value = '';
-                    document.querySelector('.filter-form').classList.remove('filter-active');
-                }
-
-                if (modeToKeep !== 'tag') {
-                    document.getElementById('filterTag').value = 'all';
-                }
+                Object.entries(modeResetters).forEach(([mode, reset]) => {
+                    if (mode !== modeToKeep) reset();
+                });
             }
 
             updateModeSummary(label) {
