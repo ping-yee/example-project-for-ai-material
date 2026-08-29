@@ -1,8 +1,8 @@
 <?php
 
+use App\Http\Controllers\TaskController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\TaskController;
 
 /*
 |--------------------------------------------------------------------------
@@ -20,6 +20,6 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 // Task API Routes
-Route::apiResource('tasks', TaskController::class);
 Route::get('tasks/search', [TaskController::class, 'search']);
 Route::get('tasks/filter', [TaskController::class, 'filter']);
+Route::apiResource('tasks', TaskController::class);

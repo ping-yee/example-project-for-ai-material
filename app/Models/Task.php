@@ -3,28 +3,38 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Task extends Model
 {
+    protected $with = [
+        'tags',
+    ];
+
     protected $fillable = [
         'title',
         'description',
         'status',
         'priority',
-        'due_date'
+        'due_date',
     ];
 
     protected $casts = [
         'due_date' => 'date',
-        'priority' => 'integer'
+        'priority' => 'integer',
     ];
+
+    public function tags(): BelongsToMany
+    {
+        return $this->belongsToMany(Tag::class);
+    }
 
     public function getPriorityTextAttribute()
     {
         return [
             1 => '低',
             2 => '中',
-            3 => '高'
+            3 => '高',
         ][$this->priority] ?? '未知';
     }
 
@@ -33,7 +43,7 @@ class Task extends Model
         return [
             'pending' => '待處理',
             'in_progress' => '進行中',
-            'completed' => '已完成'
+            'completed' => '已完成',
         ][$this->status] ?? '未知';
     }
 }

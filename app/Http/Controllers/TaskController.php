@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Tag;
 use App\Models\Task;
-use Illuminate\Http\Request;
+use App\Rules\TagName;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class TaskController extends Controller
@@ -15,9 +18,10 @@ class TaskController extends Controller
     public function index(): JsonResponse
     {
         $tasks = Task::orderBy('created_at', 'desc')->get();
+
         return response()->json([
             'success' => true,
-            'data' => $tasks
+            'data' => $tasks,
         ]);
     }
 
@@ -32,21 +36,34 @@ class TaskController extends Controller
                 'description' => 'nullable|string',
                 'status' => 'nullable|in:pending,in_progress,completed',
                 'priority' => 'nullable|integer|in:1,2,3',
-                'due_date' => 'nullable|date'
+                'due_date' => 'nullable|date',
+                'new_tag_name' => ['sometimes', 'required', 'string', new TagName],
             ]);
 
-            $task = Task::create($validated);
+            $task = DB::transaction(function () use ($validated): Task {
+                $tagName = $validated['new_tag_name'] ?? null;
+                unset($validated['new_tag_name']);
+
+                $task = Task::create($validated);
+
+                if ($tagName !== null && $tagName !== '') {
+                    $tag = Tag::findOrCreateByName($tagName);
+                    $task->tags()->syncWithoutDetaching([$tag->id]);
+                }
+
+                return $task->load('tags');
+            });
 
             return response()->json([
                 'success' => true,
                 'message' => '任務建立成功',
-                'data' => $task
+                'data' => $task,
             ], 201);
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => '驗證失敗',
-                'errors' => $e->errors()
+                'errors' => $e->errors(),
             ], 422);
         }
     }
@@ -57,17 +74,17 @@ class TaskController extends Controller
     public function show(string $id): JsonResponse
     {
         $task = Task::find($id);
-        
-        if (!$task) {
+
+        if (! $task) {
             return response()->json([
                 'success' => false,
-                'message' => '任務不存在'
+                'message' => '任務不存在',
             ], 404);
         }
 
         return response()->json([
             'success' => true,
-            'data' => $task
+            'data' => $task,
         ]);
     }
 
@@ -78,11 +95,11 @@ class TaskController extends Controller
     {
         try {
             $task = Task::find($id);
-            
-            if (!$task) {
+
+            if (! $task) {
                 return response()->json([
                     'success' => false,
-                    'message' => '任務不存在'
+                    'message' => '任務不存在',
                 ], 404);
             }
 
@@ -91,7 +108,7 @@ class TaskController extends Controller
                 'description' => 'nullable|string',
                 'status' => 'sometimes|in:pending,in_progress,completed',
                 'priority' => 'sometimes|integer|in:1,2,3',
-                'due_date' => 'nullable|date'
+                'due_date' => 'nullable|date',
             ]);
 
             $task->update($validated);
@@ -99,13 +116,13 @@ class TaskController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => '任務更新成功',
-                'data' => $task
+                'data' => $task,
             ]);
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => '驗證失敗',
-                'errors' => $e->errors()
+                'errors' => $e->errors(),
             ], 422);
         }
     }
@@ -116,11 +133,11 @@ class TaskController extends Controller
     public function destroy(string $id): JsonResponse
     {
         $task = Task::find($id);
-        
-        if (!$task) {
+
+        if (! $task) {
             return response()->json([
                 'success' => false,
-                'message' => '任務不存在'
+                'message' => '任務不存在',
             ], 404);
         }
 
@@ -128,7 +145,7 @@ class TaskController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => '任務刪除成功'
+            'message' => '任務刪除成功',
         ]);
     }
 
@@ -137,9 +154,10 @@ class TaskController extends Controller
     {
         $query = $request->input('query');
         $tasks = Task::where('title', 'like', "%$query%")->get();
+
         return response()->json([
             'success' => true,
-            'data' => $tasks
+            'data' => $tasks,
         ]);
     }
 
@@ -164,21 +182,21 @@ class TaskController extends Controller
         }
 
         if ($request->has('date_to') && $request->date_to) {
-            $query->where('created_at', '<=', $request->date_to . ' 23:59:59');
+            $query->where('created_at', '<=', $request->date_to.' 23:59:59');
         }
 
         // 排序
         $sortBy = $request->input('sort_by', 'created_at');
         $sortOrder = $request->input('sort_order', 'desc');
-        
+
         // 驗證排序欄位
         $allowedSortFields = ['created_at', 'updated_at', 'title', 'priority', 'status', 'due_date'];
-        if (!in_array($sortBy, $allowedSortFields)) {
+        if (! in_array($sortBy, $allowedSortFields)) {
             $sortBy = 'created_at';
         }
 
         // 驗證排序方向
-        if (!in_array($sortOrder, ['asc', 'desc'])) {
+        if (! in_array($sortOrder, ['asc', 'desc'])) {
             $sortOrder = 'desc';
         }
 
@@ -195,8 +213,8 @@ class TaskController extends Controller
                 'date_from' => $request->date_from,
                 'date_to' => $request->date_to,
                 'sort_by' => $sortBy,
-                'sort_order' => $sortOrder
-            ]
+                'sort_order' => $sortOrder,
+            ],
         ]);
     }
 }

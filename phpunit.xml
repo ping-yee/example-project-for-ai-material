@@ -8,8 +8,8 @@
          cacheResult="false"
 >
     <testsuites>
-        <testsuite name="Task">
-            <directory>tests/Task</directory>
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
         </testsuite>
     </testsuites>
     <source>

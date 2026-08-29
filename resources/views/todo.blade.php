@@ -112,6 +112,67 @@
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
+        .tag-controls {
+            margin-top: 15px;
+            padding: 15px;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+        }
+
+        .tag-controls-label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.9em;
+        }
+
+        .tag-entry {
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+        }
+
+        .tag-entry[hidden],
+        #addTagBtn[hidden] {
+            display: none;
+        }
+
+        .tag-entry .form-group {
+            flex: 1;
+        }
+
+        .field-error {
+            min-height: 1.2em;
+            margin-top: 6px;
+            color: #dc3545;
+            font-size: 0.85em;
+        }
+
+        .tag-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .tag-chip {
+            display: inline-flex;
+            max-width: 100%;
+            padding: 5px 12px;
+            border-radius: 20px;
+            background: #e7e9ff;
+            color: #4c51bf;
+            font-size: 0.85em;
+            overflow-wrap: anywhere;
+            white-space: normal;
+        }
+
+        .tag-chip-untagged {
+            background: #e9ecef;
+            color: #6c757d;
+        }
+
         .btn {
             padding: 12px 25px;
             border: none;
@@ -522,6 +583,11 @@
                 flex: 1;
                 min-width: 120px;
             }
+
+            .tag-entry {
+                align-items: stretch;
+                flex-direction: column;
+            }
         }
     </style>
 </head>
@@ -568,6 +634,22 @@
                     <div class="form-group" style="margin-top: 15px;">
                         <label for="description">描述</label>
                         <textarea id="description" name="description" rows="3" placeholder="任務描述（可選）"></textarea>
+                    </div>
+                    <div class="tag-controls">
+                        <span class="tag-controls-label">標籤</span>
+                        <button type="button" id="addTagBtn" class="btn btn-success">
+                            <i class="fas fa-tag"></i> 新增標籤
+                        </button>
+                        <div id="tagEntry" class="tag-entry" hidden>
+                            <div class="form-group">
+                                <label for="newTagName">標籤名稱 *</label>
+                                <input type="text" id="newTagName" name="new_tag_name" aria-describedby="newTagNameError" placeholder="例如：重要 🚀">
+                                <div id="newTagNameError" class="field-error" role="alert"></div>
+                            </div>
+                            <button type="button" id="cancelTagBtn" class="btn btn-warning">
+                                <i class="fas fa-times"></i> 取消
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -693,6 +775,15 @@
                     this.addTask();
                 });
 
+                document.getElementById('addTagBtn').addEventListener('click', () => {
+                    this.setTagEntryVisible(true);
+                    document.getElementById('newTagName').focus();
+                });
+
+                document.getElementById('cancelTagBtn').addEventListener('click', () => {
+                    this.resetTagEntry();
+                });
+
                 // 搜尋功能事件綁定
                 document.getElementById('searchBtn').addEventListener('click', () => {
                     this.performSearch();
@@ -755,6 +846,11 @@
                     due_date: formData.get('due_date') || null
                 };
 
+                this.showTagError('');
+                if (!document.getElementById('tagEntry').hidden) {
+                    taskData.new_tag_name = formData.get('new_tag_name');
+                }
+
                 try {
                     const response = await fetch('/api/tasks', {
                         method: 'POST',
@@ -770,8 +866,12 @@
                     if (result.success) {
                         this.showAlert('任務新增成功！', 'success');
                         document.getElementById('addTaskForm').reset();
+                        this.resetTagEntry();
                         this.loadTasks();
                     } else {
+                        if (result.errors?.new_tag_name?.[0]) {
+                            this.showTagError(result.errors.new_tag_name[0]);
+                        }
                         this.showAlert(result.message || '新增失敗', 'error');
                     }
                 } catch (error) {
@@ -851,6 +951,10 @@
                 const priorityClass = `priority-${task.priority === 1 ? 'low' : task.priority === 2 ? 'medium' : 'high'}`;
                 const statusClass = `status-${task.status}`;
                 const completedClass = task.status === 'completed' ? 'completed' : '';
+                const tags = Array.isArray(task.tags) ? task.tags : [];
+                const tagChips = tags.length > 0
+                    ? tags.map(tag => `<span class="tag-chip">${this.escapeHtml(tag.name)}</span>`).join('')
+                    : '<span class="tag-chip tag-chip-untagged">未加標籤</span>';
                 
                 // 手動處理優先級和狀態的文字顯示
                 const priorityText = {
@@ -869,8 +973,8 @@
                     <div class="task-card ${completedClass}" data-id="${task.id}">
                         <div class="task-header">
                             <div>
-                                <div class="task-title">${task.title}</div>
-                                ${task.description ? `<div class="task-description">${task.description}</div>` : ''}
+                                <div class="task-title">${this.escapeHtml(task.title)}</div>
+                                ${task.description ? `<div class="task-description">${this.escapeHtml(task.description)}</div>` : ''}
                             </div>
                             <div class="task-actions">
                                 <button class="btn btn-sm btn-warning edit-task" data-id="${task.id}">
@@ -901,6 +1005,10 @@
                                 <i class="fas fa-clock"></i>
                                 建立: ${new Date(task.created_at).toLocaleDateString('zh-TW')}
                             </span>
+                        </div>
+
+                        <div class="tag-list" aria-label="任務標籤">
+                            ${tagChips}
                         </div>
                         
                         <div class="task-actions">
@@ -1197,10 +1305,8 @@
                 const container = document.getElementById('alertContainer');
                 const alert = document.createElement('div');
                 alert.className = `alert alert-${type}`;
-                alert.innerHTML = `
-                    <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
-                    ${message}
-                `;
+                alert.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>`;
+                alert.appendChild(document.createTextNode(message));
                 
                 container.appendChild(alert);
                 
@@ -1208,6 +1314,27 @@
                 setTimeout(() => {
                     alert.remove();
                 }, 3000);
+            }
+
+            setTagEntryVisible(visible) {
+                document.getElementById('tagEntry').hidden = !visible;
+                document.getElementById('addTagBtn').hidden = visible;
+            }
+
+            resetTagEntry() {
+                document.getElementById('newTagName').value = '';
+                this.showTagError('');
+                this.setTagEntryVisible(false);
+            }
+
+            showTagError(message) {
+                document.getElementById('newTagNameError').textContent = message;
+            }
+
+            escapeHtml(value) {
+                const element = document.createElement('div');
+                element.textContent = String(value);
+                return element.innerHTML;
             }
         }
 
