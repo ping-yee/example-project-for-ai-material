@@ -21,19 +21,22 @@ class Tag extends Model
         'pivot',
     ];
 
-    public static function findOrCreateByName(string $name): self
+    public static function normalizeName(string $name): string
     {
-        $normalizedName = Normalizer::normalize($name, Normalizer::FORM_KC);
+        $normalizedName = Normalizer::normalize(trim($name), Normalizer::FORM_KC);
 
         if ($normalizedName === false) {
             throw new InvalidArgumentException('標籤名稱必須是有效的 Unicode 字串。');
         }
 
-        $normalizedName = mb_convert_case($normalizedName, MB_CASE_FOLD, 'UTF-8');
+        return mb_convert_case($normalizedName, MB_CASE_FOLD, 'UTF-8');
+    }
 
-        return self::firstOrCreate(
-            ['normalized_name' => $normalizedName],
-            ['name' => $name],
-        );
+    public static function createFromName(string $name): self
+    {
+        return self::query()->create([
+            'name' => trim($name),
+            'normalized_name' => self::normalizeName($name),
+        ]);
     }
 }

@@ -167,15 +167,15 @@ class TaskTagTest extends TestCase
     }
 
     /**
-     * User Story: 作為使用者，我想重複使用不分大小寫的同名標籤，以免產生重複標籤。
+     * User Story: 作為使用者，我想在輸入同名標籤時改選既有標籤，以免系統替我決定。
      *
      * Given: 兩個只在大小寫與 Unicode 組合形式不同的標籤名稱
      * When: 建立兩個任務
-     * Then: 兩個任務回傳相同標籤識別碼與首次建立的顯示名稱
+     * Then: 第二次寫入得到指定欄位錯誤，且不建立任務或重複標籤
      *
      * @test
      */
-    public function test_when_create_tasks_given_case_and_unicode_variants_then_reuses_one_tag(): void
+    public function test_when_create_task_given_existing_normalized_name_then_rejects_new_tag(): void
     {
         // Given: 兩個只在大小寫與 Unicode 組合形式不同的標籤名稱
         $firstPayload = ['title' => '第一個任務', 'new_tag_name' => 'Café 🚀'];
@@ -183,14 +183,19 @@ class TaskTagTest extends TestCase
 
         // When: 建立兩個任務
         $first = $this->postJson('/api/tasks', $firstPayload)->assertCreated();
-        $second = $this->postJson('/api/tasks', $secondPayload)->assertCreated();
+        $second = $this->postJson('/api/tasks', $secondPayload);
 
-        // Then: 回應指向同一個標籤
+        // Then: 回傳指定錯誤，且第一個任務與標籤保持唯一
+        $first->assertJsonPath('data.tags.0.name', 'Café 🚀');
+        $second
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('new_tag_name');
         $this->assertSame(
-            $first->json('data.tags.0.id'),
-            $second->json('data.tags.0.id'),
+            '標籤已存在，請從選項中選取',
+            $second->json('errors.new_tag_name.0'),
         );
-        $second->assertJsonPath('data.tags.0.name', 'Café 🚀');
+        $this->getJson('/api/tasks')->assertJsonCount(1, 'data');
+        $this->getJson('/api/tags')->assertJsonCount(1, 'data');
     }
 
     /**

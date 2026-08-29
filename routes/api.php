@@ -20,6 +20,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 // Task API Routes
+Route::get('tags', [TaskController::class, 'tagOptions']);
 Route::get('tasks/search', [TaskController::class, 'search']);
 Route::get('tasks/filter', [TaskController::class, 'filter']);
 Route::apiResource('tasks', TaskController::class);

@@ -76,7 +76,7 @@
 
         .form-row {
             display: grid;
-            grid-template-columns: 2fr 1fr 1fr 1fr auto;
+            grid-template-columns: 2fr 1fr 1fr 1fr auto auto;
             gap: 15px;
             align-items: end;
         }
@@ -119,6 +119,64 @@
             border-radius: 10px;
         }
 
+        .tag-picker {
+            display: grid;
+            gap: 10px;
+        }
+
+        .tag-picker-search {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+        }
+
+        .tag-options {
+            display: grid;
+            gap: 6px;
+            max-height: 180px;
+            overflow-y: auto;
+            padding: 6px;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+        }
+
+        .tag-option {
+            width: 100%;
+            padding: 9px 12px;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            background: #f8f9fa;
+            color: #495057;
+            text-align: left;
+            cursor: pointer;
+        }
+
+        .tag-option:hover,
+        .tag-option:focus-visible,
+        .tag-option[aria-selected="true"] {
+            border-color: #667eea;
+            background: #e7e9ff;
+            outline: none;
+        }
+
+        .selected-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            min-height: 32px;
+        }
+
+        .selected-tag-remove {
+            margin-left: 7px;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            cursor: pointer;
+            font-size: 1.1em;
+            line-height: 1;
+        }
+
         .tag-controls-label {
             display: block;
             margin-bottom: 10px;
@@ -134,8 +192,9 @@
         }
 
         .tag-entry[hidden],
-        #addTagBtn[hidden] {
-            display: none;
+        #addTagBtn[hidden],
+        #cancelEditBtn[hidden] {
+            display: none !important;
         }
 
         .tag-entry .form-group {
@@ -166,6 +225,18 @@
             font-size: 0.85em;
             overflow-wrap: anywhere;
             white-space: normal;
+            border: 0;
+        }
+
+        button.tag-chip {
+            cursor: pointer;
+        }
+
+        button.tag-chip:hover,
+        button.tag-chip:focus-visible,
+        button.tag-chip[aria-pressed="true"] {
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.25);
+            outline: none;
         }
 
         .tag-chip-untagged {
@@ -545,6 +616,16 @@
             gap: 10px;
         }
 
+        .mode-summary {
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+            border-radius: 8px;
+            background: #f1f3ff;
+            color: #343a40;
+            font-weight: 600;
+        }
+
         @media (max-width: 768px) {
             .form-row {
                 grid-template-columns: 1fr;
@@ -588,6 +669,18 @@
                 align-items: stretch;
                 flex-direction: column;
             }
+
+            .content,
+            .add-task-form,
+            .search-form,
+            .filter-content,
+            .task-card {
+                padding: 18px;
+            }
+
+            .tag-options {
+                max-height: 220px;
+            }
         }
     </style>
 </head>
@@ -630,6 +723,9 @@
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-plus"></i> 新增
                         </button>
+                        <button type="button" id="cancelEditBtn" class="btn btn-warning" hidden>
+                            <i class="fas fa-times"></i> 取消編輯
+                        </button>
                     </div>
                     <div class="form-group" style="margin-top: 15px;">
                         <label for="description">描述</label>
@@ -637,18 +733,23 @@
                     </div>
                     <div class="tag-controls">
                         <span class="tag-controls-label">標籤</span>
-                        <button type="button" id="addTagBtn" class="btn btn-success">
-                            <i class="fas fa-tag"></i> 新增標籤
-                        </button>
-                        <div id="tagEntry" class="tag-entry" hidden>
-                            <div class="form-group">
-                                <label for="newTagName">標籤名稱 *</label>
-                                <input type="text" id="newTagName" name="new_tag_name" aria-describedby="newTagNameError" placeholder="例如：重要 🚀">
-                                <div id="newTagNameError" class="field-error" role="alert"></div>
-                            </div>
-                            <button type="button" id="cancelTagBtn" class="btn btn-warning">
-                                <i class="fas fa-times"></i> 取消
+                        <div class="tag-picker">
+                            <div id="selectedTags" class="selected-tags" aria-live="polite"></div>
+                            <button type="button" id="addTagBtn" class="btn btn-success">
+                                <i class="fas fa-tag"></i> 新增標籤
                             </button>
+                            <div id="tagEntry" class="tag-entry" hidden>
+                                <div class="form-group">
+                                    <label for="newTagName">新標籤名稱 *</label>
+                                    <input type="text" id="newTagName" aria-describedby="newTagNameError" placeholder="例如：重要 🚀" maxlength="200">
+                                </div>
+                                <button type="button" id="confirmTagBtn" class="btn btn-success">加入</button>
+                                <button type="button" id="cancelTagBtn" class="btn btn-warning">取消</button>
+                            </div>
+                            <div id="newTagNameError" class="field-error" role="alert"></div>
+                            <label for="tagSearch" class="tag-controls-label">搜尋並選取既有標籤</label>
+                            <input type="search" id="tagSearch" class="tag-picker-search" placeholder="輸入標籤名稱搜尋" autocomplete="off">
+                            <div id="tagOptions" class="tag-options" role="listbox" aria-label="既有標籤" aria-multiselectable="true"></div>
                         </div>
                     </div>
                 </form>
@@ -679,6 +780,15 @@
                 </div>
                 
                 <div class="filter-content" id="filterContent" style="display: none;">
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label for="filterTag">標籤篩選</label>
+                            <select id="filterTag" class="filter-select">
+                                <option value="all">全部任務</option>
+                                <option value="untagged">未加標籤</option>
+                            </select>
+                        </div>
+                    </div>
                     <div class="filter-row">
                         <div class="filter-group">
                             <label for="filterStatus">狀態</label>
@@ -747,6 +857,8 @@
             <!-- 提示訊息 -->
             <div id="alertContainer"></div>
 
+            <div id="modeSummary" class="mode-summary" role="status">目前模式：完整清單</div>
+
             <!-- 任務列表 -->
             <div id="tasksContainer">
                 <div class="loading">
@@ -761,12 +873,17 @@
         class TodoApp {
             constructor() {
                 this.tasks = [];
+                this.tags = [];
+                this.selectedTagIds = new Set();
+                this.newTagNames = [];
+                this.activeMode = 'all';
                 this.init();
             }
 
-            init() {
+            async init() {
                 this.bindEvents();
-                this.loadTasks();
+                await this.loadTags();
+                await this.refreshTasks();
             }
 
             bindEvents() {
@@ -782,6 +899,25 @@
 
                 document.getElementById('cancelTagBtn').addEventListener('click', () => {
                     this.resetTagEntry();
+                });
+
+                document.getElementById('confirmTagBtn').addEventListener('click', () => {
+                    this.confirmNewTag();
+                });
+
+                document.getElementById('newTagName').addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.confirmNewTag();
+                    }
+                });
+
+                document.getElementById('tagSearch').addEventListener('input', () => {
+                    this.renderTagOptions();
+                });
+
+                document.getElementById('cancelEditBtn').addEventListener('click', () => {
+                    this.resetTaskForm();
                 });
 
                 // 搜尋功能事件綁定
@@ -820,40 +956,94 @@
                 document.getElementById('clearFilterBtn').addEventListener('click', () => {
                     this.clearFilter();
                 });
+
+                document.getElementById('filterTag').addEventListener('change', (e) => {
+                    this.applyTagFilter(e.target.value);
+                });
+
+                ['sortBy', 'sortOrder'].forEach(id => {
+                    document.getElementById(id).addEventListener('change', () => this.refreshTasks());
+                });
+            }
+
+            async loadTags() {
+                try {
+                    const response = await fetch('/api/tags');
+                    const result = await response.json();
+
+                    if (!result.success) return;
+
+                    this.tags = result.data;
+                    const filterTag = document.getElementById('filterTag');
+                    const selectedValue = filterTag.value;
+                    filterTag.querySelectorAll('option[data-tag-option]').forEach(option => option.remove());
+                    this.tags.forEach(tag => {
+                        const option = document.createElement('option');
+                        option.value = String(tag.id);
+                        option.dataset.tagOption = 'true';
+                        option.textContent = tag.name;
+                        filterTag.appendChild(option);
+                    });
+                    filterTag.value = [...filterTag.options].some(option => option.value === selectedValue)
+                        ? selectedValue
+                        : 'all';
+                    this.renderTagOptions();
+                    this.renderSelectedTags();
+                } catch (error) {
+                    this.showAlert('載入標籤失敗', 'error');
+                }
             }
 
             async loadTasks() {
                 try {
-                    const response = await fetch('/api/tasks');
+                    this.activeMode = 'all';
+                    this.clearOtherModes('all');
+                    const response = await fetch(`/api/tasks/filter?${this.sortParams().toString()}`);
                     const result = await response.json();
                     
                     if (result.success) {
                         this.tasks = result.data;
                         this.renderTasks();
+                        this.updateModeSummary('完整清單');
                     }
                 } catch (error) {
                     this.showAlert('載入任務失敗', 'error');
                 }
             }
 
+            async refreshTasks() {
+                if (this.activeMode === 'search') return this.performSearch();
+                if (this.activeMode === 'filter') return this.applyFilter();
+                if (this.activeMode === 'tag') return this.applyTagFilter(document.getElementById('filterTag').value);
+                return this.loadTasks();
+            }
+
+            sortParams() {
+                return new URLSearchParams({
+                    sort_by: document.getElementById('sortBy').value,
+                    sort_order: document.getElementById('sortOrder').value,
+                });
+            }
+
             async addTask() {
-                const formData = new FormData(document.getElementById('addTaskForm'));
+                const form = document.getElementById('addTaskForm');
+                const formData = new FormData(form);
                 const taskData = {
                     title: formData.get('title'),
                     description: formData.get('description'),
                     priority: parseInt(formData.get('priority')),
                     status: formData.get('status'),
-                    due_date: formData.get('due_date') || null
+                    due_date: formData.get('due_date') || null,
+                    tag_ids: Array.from(this.selectedTagIds),
+                    new_tag_names: [...this.newTagNames],
                 };
 
                 this.showTagError('');
-                if (!document.getElementById('tagEntry').hidden) {
-                    taskData.new_tag_name = formData.get('new_tag_name');
-                }
+                const editingId = form.dataset.editId;
 
                 try {
-                    const response = await fetch('/api/tasks', {
-                        method: 'POST',
+                    const response = await fetch(editingId ? `/api/tasks/${editingId}` : '/api/tasks', {
+                        method: editingId ? 'PUT' : 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
@@ -864,18 +1054,19 @@
                     const result = await response.json();
                     
                     if (result.success) {
-                        this.showAlert('任務新增成功！', 'success');
-                        document.getElementById('addTaskForm').reset();
-                        this.resetTagEntry();
-                        this.loadTasks();
+                        this.showAlert(editingId ? '任務更新成功！' : '任務新增成功！', 'success');
+                        this.resetTaskForm();
+                        await this.loadTags();
+                        await this.refreshTasks();
                     } else {
-                        if (result.errors?.new_tag_name?.[0]) {
-                            this.showTagError(result.errors.new_tag_name[0]);
-                        }
-                        this.showAlert(result.message || '新增失敗', 'error');
+                        const tagErrorKey = Object.keys(result.errors || {}).find(key =>
+                            key === 'tags' || key === 'new_tag_name' || key.startsWith('new_tag_names')
+                        );
+                        if (tagErrorKey) this.showTagError(result.errors[tagErrorKey][0]);
+                        this.showAlert(result.message || (editingId ? '更新失敗' : '新增失敗'), 'error');
                     }
                 } catch (error) {
-                    this.showAlert('新增任務失敗', 'error');
+                    this.showAlert(editingId ? '更新任務失敗' : '新增任務失敗', 'error');
                 }
             }
 
@@ -894,7 +1085,7 @@
                     
                     if (result.success) {
                         this.showAlert('任務更新成功！', 'success');
-                        this.loadTasks();
+                        this.refreshTasks();
                     } else {
                         this.showAlert(result.message || '更新失敗', 'error');
                     }
@@ -918,7 +1109,8 @@
                     
                     if (result.success) {
                         this.showAlert('任務刪除成功！', 'success');
-                        this.loadTasks();
+                        await this.loadTags();
+                        this.refreshTasks();
                     } else {
                         this.showAlert(result.message || '刪除失敗', 'error');
                     }
@@ -953,8 +1145,18 @@
                 const completedClass = task.status === 'completed' ? 'completed' : '';
                 const tags = Array.isArray(task.tags) ? task.tags : [];
                 const tagChips = tags.length > 0
-                    ? tags.map(tag => `<span class="tag-chip">${this.escapeHtml(tag.name)}</span>`).join('')
-                    : '<span class="tag-chip tag-chip-untagged">未加標籤</span>';
+                    ? tags.map(tag => `
+                        <button type="button" class="tag-chip tag-filter-chip" data-tag="${Number(tag.id)}"
+                            aria-label="以標籤 ${this.escapeHtml(tag.name)} 篩選"
+                            aria-pressed="${this.activeMode === 'tag' && document.getElementById('filterTag').value === String(tag.id)}">
+                            ${this.escapeHtml(tag.name)}
+                        </button>
+                    `).join('')
+                    : `<button type="button" class="tag-chip tag-chip-untagged tag-filter-chip" data-tag="untagged"
+                            aria-label="篩選未加標籤任務"
+                            aria-pressed="${this.activeMode === 'tag' && document.getElementById('filterTag').value === 'untagged'}">
+                            未加標籤
+                       </button>`;
                 
                 // 手動處理優先級和狀態的文字顯示
                 const priorityText = {
@@ -977,10 +1179,10 @@
                                 ${task.description ? `<div class="task-description">${this.escapeHtml(task.description)}</div>` : ''}
                             </div>
                             <div class="task-actions">
-                                <button class="btn btn-sm btn-warning edit-task" data-id="${task.id}">
+                                <button class="btn btn-sm btn-warning edit-task" data-id="${task.id}" aria-label="編輯 ${this.escapeHtml(task.title)}">
                                     <i class="fas fa-edit"></i>
                                 </button>
-                                <button class="btn btn-sm btn-danger delete-task" data-id="${task.id}">
+                                <button class="btn btn-sm btn-danger delete-task" data-id="${task.id}" aria-label="刪除 ${this.escapeHtml(task.title)}">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>
@@ -1058,6 +1260,13 @@
                         this.deleteTask(id);
                     });
                 });
+
+                document.querySelectorAll('.tag-filter-chip').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        document.getElementById('filterTag').value = btn.dataset.tag;
+                        this.applyTagFilter(btn.dataset.tag);
+                    });
+                });
             }
 
             editTask(id) {
@@ -1069,12 +1278,20 @@
                 document.getElementById('description').value = task.description || '';
                 document.getElementById('priority').value = task.priority;
                 document.getElementById('status').value = task.status;
-                document.getElementById('due_date').value = task.due_date || '';
+                document.getElementById('due_date').value = task.due_date
+                    ? String(task.due_date).slice(0, 10)
+                    : '';
+                this.selectedTagIds = new Set((task.tags || []).map(tag => Number(tag.id)));
+                this.newTagNames = [];
+                this.renderSelectedTags();
+                this.renderTagOptions();
+                this.resetTagEntry();
 
                 // 修改表單提交行為
                 const form = document.getElementById('addTaskForm');
                 form.dataset.editId = id;
                 form.querySelector('button[type="submit"]').innerHTML = '<i class="fas fa-save"></i> 更新';
+                document.getElementById('cancelEditBtn').hidden = false;
                 
                 // 滾動到表單
                 form.scrollIntoView({ behavior: 'smooth' });
@@ -1088,6 +1305,9 @@
                     return;
                 }
 
+                this.clearOtherModes('search');
+                this.activeMode = 'search';
+
                 try {
                     // 顯示載入狀態
                     const container = document.getElementById('tasksContainer');
@@ -1098,7 +1318,9 @@
                         </div>
                     `;
 
-                    const response = await fetch(`/api/tasks/search?query=${encodeURIComponent(query)}`);
+                    const params = this.sortParams();
+                    params.set('query', query);
+                    const response = await fetch(`/api/tasks/search?${params.toString()}`);
                     const result = await response.json();
                     
                     if (result.success) {
@@ -1107,16 +1329,17 @@
                         
                         // 顯示搜尋結果資訊
                         this.showSearchResults(query, result.data.length);
+                        this.updateModeSummary(`搜尋「${query}」`);
                         
                         // 顯示清除按鈕
                         document.getElementById('clearSearchBtn').style.display = 'inline-flex';
                     } else {
                         this.showAlert('搜尋失敗', 'error');
-                        this.loadTasks(); // 重新載入所有任務
+                        this.loadTasks();
                     }
                 } catch (error) {
                     this.showAlert('搜尋失敗', 'error');
-                    this.loadTasks(); // 重新載入所有任務
+                    this.loadTasks();
                 }
             }
 
@@ -1130,7 +1353,7 @@
                     existingInfo.remove();
                 }
                 
-                // 重新載入所有任務
+                this.activeMode = 'all';
                 this.loadTasks();
             }
 
@@ -1145,10 +1368,7 @@
                 const container = document.getElementById('tasksContainer');
                 const searchInfo = document.createElement('div');
                 searchInfo.className = 'search-results-info';
-                searchInfo.innerHTML = `
-                    <i class="fas fa-search"></i>
-                    搜尋「${query}」找到 ${count} 個結果
-                `;
+                searchInfo.textContent = `搜尋「${query}」找到 ${count} 個結果`;
                 
                 container.insertBefore(searchInfo, container.firstChild);
             }
@@ -1170,6 +1390,8 @@
             }
 
             async applyFilter() {
+                this.clearOtherModes('filter');
+                this.activeMode = 'filter';
                 const filters = {
                     status: document.getElementById('filterStatus').value,
                     priority: document.getElementById('filterPriority').value,
@@ -1206,6 +1428,7 @@
                         
                         // 顯示篩選結果資訊
                         this.showFilterResults(result.filters, result.data.length);
+                        this.updateModeSummary('一般篩選');
                         
                         // 標記篩選為活躍狀態
                         document.querySelector('.filter-form').classList.add('filter-active');
@@ -1225,8 +1448,6 @@
                 document.getElementById('filterPriority').value = 'all';
                 document.getElementById('filterDateFrom').value = '';
                 document.getElementById('filterDateTo').value = '';
-                document.getElementById('sortBy').value = 'created_at';
-                document.getElementById('sortOrder').value = 'desc';
 
                 // 移除篩選活躍狀態
                 document.querySelector('.filter-form').classList.remove('filter-active');
@@ -1237,7 +1458,7 @@
                     existingInfo.remove();
                 }
                 
-                // 重新載入所有任務
+                this.activeMode = 'all';
                 this.loadTasks();
             }
 
@@ -1293,12 +1514,190 @@
                 const container = document.getElementById('tasksContainer');
                 const filterInfo = document.createElement('div');
                 filterInfo.className = 'filter-summary';
-                filterInfo.innerHTML = `
-                    <i class="fas fa-filter"></i>
-                    篩選結果: ${filterDescriptions.join(', ')} | 共 ${count} 個任務
-                `;
+                filterInfo.textContent = `篩選結果: ${filterDescriptions.join(', ')} | 共 ${count} 個任務`;
                 
                 container.insertBefore(filterInfo, container.firstChild);
+            }
+
+            async applyTagFilter(tagValue) {
+                if (!tagValue || tagValue === 'all') {
+                    this.activeMode = 'all';
+                    return this.loadTasks();
+                }
+
+                this.clearOtherModes('tag');
+                this.activeMode = 'tag';
+                document.getElementById('filterTag').value = String(tagValue);
+
+                try {
+                    const params = this.sortParams();
+                    params.set('tag', tagValue);
+                    const response = await fetch(`/api/tasks/filter?${params.toString()}`);
+                    const result = await response.json();
+
+                    if (!result.success) throw new Error('Tag filter failed.');
+
+                    this.tasks = result.data;
+                    this.renderTasks();
+                    const tag = this.tags.find(item => String(item.id) === String(tagValue));
+                    this.updateModeSummary(
+                        tagValue === 'untagged' ? '標籤篩選：未加標籤' : `標籤篩選：${tag?.name || '標籤'}`,
+                    );
+                    document.querySelector('.filter-form').classList.add('filter-active');
+                } catch (error) {
+                    this.showAlert('標籤篩選失敗', 'error');
+                    this.loadTasks();
+                }
+            }
+
+            clearOtherModes(modeToKeep) {
+                document.querySelectorAll('.search-results-info, .filter-summary').forEach(element => element.remove());
+
+                if (modeToKeep !== 'search') {
+                    document.getElementById('searchInput').value = '';
+                    document.getElementById('clearSearchBtn').style.display = 'none';
+                }
+
+                if (modeToKeep !== 'filter') {
+                    document.getElementById('filterStatus').value = 'all';
+                    document.getElementById('filterPriority').value = 'all';
+                    document.getElementById('filterDateFrom').value = '';
+                    document.getElementById('filterDateTo').value = '';
+                    document.querySelector('.filter-form').classList.remove('filter-active');
+                }
+
+                if (modeToKeep !== 'tag') {
+                    document.getElementById('filterTag').value = 'all';
+                }
+            }
+
+            updateModeSummary(label) {
+                document.getElementById('modeSummary').textContent = `目前模式：${label}`;
+            }
+
+            renderTagOptions() {
+                const container = document.getElementById('tagOptions');
+                const query = document.getElementById('tagSearch').value.trim().toLocaleLowerCase('zh-TW');
+                const matches = this.tags.filter(tag => tag.name.toLocaleLowerCase('zh-TW').includes(query));
+                container.replaceChildren();
+
+                if (matches.length === 0) {
+                    const empty = document.createElement('span');
+                    empty.textContent = '沒有符合的既有標籤';
+                    container.appendChild(empty);
+                    return;
+                }
+
+                matches.forEach(tag => {
+                    const button = document.createElement('button');
+                    const selected = this.selectedTagIds.has(Number(tag.id));
+                    button.type = 'button';
+                    button.className = 'tag-option';
+                    button.dataset.tagId = String(tag.id);
+                    button.setAttribute('role', 'option');
+                    button.setAttribute('aria-selected', String(selected));
+                    button.textContent = selected ? `✓ ${tag.name}` : tag.name;
+                    button.addEventListener('click', () => this.toggleExistingTag(tag.id));
+                    container.appendChild(button);
+                });
+            }
+
+            toggleExistingTag(tagId) {
+                const numericId = Number(tagId);
+                if (this.selectedTagIds.has(numericId)) {
+                    this.selectedTagIds.delete(numericId);
+                } else if (this.selectedTagIds.size + this.newTagNames.length >= 10) {
+                    this.showTagError('一項任務最多只能選擇 10 個標籤。');
+                    return;
+                } else {
+                    this.selectedTagIds.add(numericId);
+                }
+
+                this.showTagError('');
+                this.renderTagOptions();
+                this.renderSelectedTags();
+            }
+
+            renderSelectedTags() {
+                const container = document.getElementById('selectedTags');
+                container.replaceChildren();
+
+                const selections = [
+                    ...this.tags
+                        .filter(tag => this.selectedTagIds.has(Number(tag.id)))
+                        .map(tag => ({ label: tag.name, kind: 'existing', value: Number(tag.id) })),
+                    ...this.newTagNames.map(name => ({ label: name, kind: 'new', value: name })),
+                ];
+
+                if (selections.length === 0) {
+                    const empty = document.createElement('span');
+                    empty.className = 'tag-chip tag-chip-untagged';
+                    empty.textContent = '未加標籤';
+                    container.appendChild(empty);
+                    return;
+                }
+
+                selections.forEach(selection => {
+                    const chip = document.createElement('span');
+                    chip.className = 'tag-chip';
+                    chip.appendChild(document.createTextNode(selection.label));
+                    const remove = document.createElement('button');
+                    remove.type = 'button';
+                    remove.className = 'selected-tag-remove';
+                    remove.setAttribute('aria-label', `移除標籤 ${selection.label}`);
+                    remove.textContent = '×';
+                    remove.addEventListener('click', () => {
+                        if (selection.kind === 'existing') this.selectedTagIds.delete(selection.value);
+                        else this.newTagNames = this.newTagNames.filter(name => name !== selection.value);
+                        this.renderSelectedTags();
+                        this.renderTagOptions();
+                    });
+                    chip.appendChild(remove);
+                    container.appendChild(chip);
+                });
+            }
+
+            confirmNewTag() {
+                const input = document.getElementById('newTagName');
+                const name = input.value.trim();
+                const normalized = name.normalize('NFKC').toLocaleLowerCase('zh-TW');
+                const duplicatesExisting = this.tags.some(tag =>
+                    tag.name.trim().normalize('NFKC').toLocaleLowerCase('zh-TW') === normalized
+                );
+                const duplicatesNew = this.newTagNames.some(tagName =>
+                    tagName.normalize('NFKC').toLocaleLowerCase('zh-TW') === normalized
+                );
+
+                if (!name) {
+                    this.showTagError('標籤名稱不可為空。');
+                    return;
+                }
+                if (duplicatesExisting || duplicatesNew) {
+                    this.showTagError('標籤已存在，請從選項中選取');
+                    return;
+                }
+                if (this.selectedTagIds.size + this.newTagNames.length >= 10) {
+                    this.showTagError('一項任務最多只能選擇 10 個標籤。');
+                    return;
+                }
+
+                this.newTagNames.push(name);
+                this.resetTagEntry();
+                this.renderSelectedTags();
+            }
+
+            resetTaskForm() {
+                const form = document.getElementById('addTaskForm');
+                form.reset();
+                delete form.dataset.editId;
+                form.querySelector('button[type="submit"]').innerHTML = '<i class="fas fa-plus"></i> 新增';
+                document.getElementById('cancelEditBtn').hidden = true;
+                document.getElementById('tagSearch').value = '';
+                this.selectedTagIds = new Set();
+                this.newTagNames = [];
+                this.resetTagEntry();
+                this.renderSelectedTags();
+                this.renderTagOptions();
             }
 
             showAlert(message, type) {
