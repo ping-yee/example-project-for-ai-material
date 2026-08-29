@@ -1,0 +1,15 @@
+{
+    "hooks": {
+        "Stop": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "/usr/bin/env php \"${CLAUDE_PROJECT_DIR}/tools/verify-before-stop.php\"",
+                        "timeout": 900
+                    }
+                ]
+            }
+        ]
+    }
+}
